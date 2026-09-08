@@ -1,3 +1,6 @@
+import { DisclosureState } from './disclosure-state.js';
+import { accountSelectionChanges, mergeAccountSelections } from './settings-state.js';
+
 const catalog = [
   { id: 'claude', name: 'Claude', icon: '✳', loginCommand: 'claude auth login' },
   { id: 'chatgpt', name: 'ChatGPT', icon: '◎', loginCommand: 'codex login' },
@@ -14,6 +17,7 @@ let toastTimer;
 let lastCardsSignature = '';
 let polling = false;
 let lastDiscovery = 0;
+const disclosures = new DisclosureState();
 
 // All provider strings pass through escaping before entering an HTML template.
 function escape(value) {
@@ -91,10 +95,23 @@ async function api(path, body) {
 
 function applyAccounts(payload) {
   if (!Array.isArray(payload?.accounts) || !payload.settings) throw new Error('Account discovery returned an unreadable response.');
+  const editing = $('settings-dialog').open;
+  // Preserve edits made while discovery was pending, rather than every old value.
+  const selections = editing ? mergeAccountSelections(state.settings?.enabled, settingsSelections(), payload.settings.enabled) : null;
+  const changedInterval = editing && Number($('interval').value) !== (state.settings?.refreshIntervalMs || 180000);
+  const changedLan = editing && $('lan').checked !== Boolean(state.settings?.lanEnabled);
+  const focusedProvider = document.activeElement?.matches('#settings-accounts input') ? document.activeElement.dataset.provider : null;
   state.accounts = catalog.map(provider => ({ ...provider, ...payload.accounts.find(account => account.id === provider.id), id: provider.id, name: provider.name }));
   state.settings = payload.settings;
   if (typeof payload.csrfToken === 'string') state.csrfToken = payload.csrfToken;
   lastDiscovery = Date.now();
+  if (editing) {
+    accountRows('settings-accounts', false, selections);
+    if (focusedProvider) $('settings-accounts').querySelector(`input[data-provider="${focusedProvider}"]`)?.focus({ preventScroll: true });
+    if (!changedInterval) setIntervalSelection(state.settings.refreshIntervalMs || 180000);
+    if (!changedLan) $('lan').checked = Boolean(state.settings.lanEnabled);
+    renderLan();
+  }
 }
 
 function enabledProviders() {
@@ -122,7 +139,7 @@ function meter(window, name) {
   return `<div class="meter"><div class="meter-title"><span>${escape(label)}</span><strong>${escape(display)}<span>%</span></strong></div><div class="track" role="meter" aria-label="${escape(name)}: ${escape(label)} used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, value)}" aria-valuetext="${escape(display)} percent used"><div class="fill ${color}" style="width:${Math.min(100, value)}%"></div></div><small${reset === null ? '' : ` data-reset="${reset}" title="${escape(absolute(reset))}"`}>${reset === null ? 'Reset time unavailable' : reset > Date.now() ? `Resets in ${duration(reset - Date.now())}` : 'Reset time passed; awaiting update'}</small></div>`;
 }
 
-function accountDetails(info, primary, scoped, extras, previousOpen) {
+function accountDetails(info, primary, extras) {
   const detailsId = `${info.id}-details`;
   const resetRows = primary.flatMap(window => {
     const reset = timestamp(window.resetsAt);
@@ -135,7 +152,14 @@ function accountDetails(info, primary, scoped, extras, previousOpen) {
   });
   const extraRows = extras.map(extra => `<div class="extra-row"><dt>${escape(extra.label)}</dt><dd>${escape(extra.value)}</dd></div>`);
   const rows = [...extraRows, ...resetRows];
-  return `<details class="details" id="${detailsId}"${previousOpen.has(detailsId) ? ' open' : ''}><summary>${scoped.length ? 'Model limits & account details' : 'Account details'}</summary><p>${escape(allowanceNotes[info.id])}</p>${scoped.map(window => meter(window, info.name)).join('')}${rows.length ? `<dl class="extras">${rows.join('')}</dl>` : ''}</details>`;
+  return `<details class="details" id="${detailsId}"${disclosures.update(detailsId) ? ' open' : ''}><summary>Account details</summary><p>${escape(allowanceNotes[info.id])}</p>${rows.length ? `<dl class="extras">${rows.join('')}</dl>` : ''}</details>`;
+}
+
+function modelLimits(info, windows) {
+  const id = `${info.id}-models`;
+  const open = disclosures.update(id, windows);
+  if (!windows.length) return '';
+  return `<details class="details model-limits" id="${id}"${open ? ' open' : ''}><summary>Model limits <span class="detail-count">(${windows.length})</span></summary>${windows.map(window => meter(window, info.name)).join('')}</details>`;
 }
 
 function errorTitle(code = '') {
@@ -146,7 +170,7 @@ function errorTitle(code = '') {
   return 'Usage is unavailable';
 }
 
-function renderCard(info, previousOpen) {
+function renderCard(info) {
   const account = state.accounts?.find(account => account.id === info.id);
   const snapshot = state.usage?.providers?.find(provider => provider.id === info.id);
   const provider = snapshot || { status: 'loading', windows: [] };
@@ -174,7 +198,8 @@ function renderCard(info, previousOpen) {
     if (!primary.length) { primary = scoped.splice(0, scoped.length); }
     content += primary.map(window => meter(window, info.name)).join('');
     const extras = Array.isArray(provider.extras) ? provider.extras.filter(extra => extra && typeof extra.label === 'string' && ['string', 'number', 'boolean'].includes(typeof extra.value)) : [];
-    content += accountDetails(info, primary, scoped, extras, previousOpen);
+    content += modelLimits(info, scoped);
+    content += accountDetails(info, primary, extras);
   } else if (loading && !missing) {
     content += '<div class="loading-state"><span class="loading-indicator" aria-hidden="true"></span><span>Waiting for the first usage reading…</span><small>No allowance estimate yet.</small></div>';
   } else {
@@ -215,9 +240,10 @@ function render() {
   }
   const signature = JSON.stringify([enabled, state.accounts, state.usage?.providers]);
   if (signature !== lastCardsSignature) {
-    const previousOpen = new Set([...$('cards').querySelectorAll('details[open]')].map(details => details.id));
+    // Capture the actual DOM too: a click can precede its queued toggle event.
+    $('cards').querySelectorAll('details').forEach(details => disclosures.setOpen(details.id, details.open));
     const focusedDetails = document.activeElement?.closest('#cards details')?.id;
-    $('cards').innerHTML = enabled.map(provider => renderCard(provider, previousOpen)).join('');
+    $('cards').innerHTML = enabled.map(provider => renderCard(provider)).join('');
     if (focusedDetails) document.getElementById(focusedDetails)?.querySelector('summary')?.focus({ preventScroll: true });
     lastCardsSignature = signature;
   }
@@ -277,9 +303,7 @@ async function rescan(inSettings = false) {
   const errorTarget = inSettings ? 'settings-error' : 'setup-error';
   showError(errorTarget);
   try {
-    const selections = inSettings ? settingsSelections() : null;
     applyAccounts(await api('/api/accounts'));
-    if (inSettings) accountRows('settings-accounts', false, selections);
     render();
     notify('Local CLI logins rescanned.');
   } catch (error) { showError(errorTarget, error.message); }
@@ -297,9 +321,7 @@ async function saveAccounts(body) {
   render();
 }
 
-$('settings').addEventListener('click', () => {
-  accountRows('settings-accounts');
-  const savedInterval = state.settings?.refreshIntervalMs || 180000;
+function setIntervalSelection(savedInterval) {
   $('interval').querySelectorAll('[data-custom]').forEach(option => option.remove());
   if (![...$('interval').options].some(option => option.value === String(savedInterval))) {
     const option = document.createElement('option');
@@ -309,6 +331,11 @@ $('settings').addEventListener('click', () => {
     $('interval').append(option);
   }
   $('interval').value = String(savedInterval);
+}
+
+$('settings').addEventListener('click', () => {
+  accountRows('settings-accounts');
+  setIntervalSelection(state.settings?.refreshIntervalMs || 180000);
   $('lan').checked = !!state.settings?.lanEnabled;
   showError('settings-error');
   renderLan();
@@ -331,7 +358,7 @@ $('settings-form').addEventListener('submit', async event => {
   save.textContent = 'Saving…';
   showError('settings-error');
   try {
-    await saveAccounts({ enabled: settingsSelections(), refreshIntervalMs: Number($('interval').value), lanEnabled: $('lan').checked });
+    await saveAccounts({ enabled: accountSelectionChanges(state.settings?.enabled, settingsSelections()), refreshIntervalMs: Number($('interval').value), lanEnabled: $('lan').checked });
     $('settings-dialog').close();
     notify(state.meta?.restartRequired ? 'Settings saved. Restart the server to apply the Wi-Fi access change.' : 'Workspace settings saved.');
   } catch (error) { showError('settings-error', error.message); }
@@ -414,6 +441,10 @@ async function poll() {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) { updateTimes(); poll(); }
 });
+$('cards').addEventListener('toggle', event => {
+  const details = event.target;
+  if (details instanceof HTMLDetailsElement && details.isConnected) disclosures.setOpen(details.id, details.open);
+}, true);
 window.addEventListener('online', poll);
 render();
 poll();

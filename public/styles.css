@@ -31,7 +31,7 @@ h2{font-size:18px;letter-spacing:-.4px;margin:0}
 .section-heading h2{font-size:14px;letter-spacing:0}
 .section-heading h2 span{font-weight:400;font-size:11px;color:var(--muted);margin-left:10px;border:1px solid var(--line);border-radius:20px;padding:3px 8px}
 .muted{color:var(--muted);font-size:12px}
-.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;min-height:358px}
 .card-main{padding:25px;flex:1}
 .provider-heading{display:flex;align-items:center;gap:12px;margin-bottom:29px}
@@ -54,6 +54,8 @@ h2{font-size:18px;letter-spacing:-.4px;margin:0}
 .details{border-top:1px solid var(--line);margin-top:24px;padding-top:14px;font-size:12px;color:var(--muted)}
 summary{cursor:pointer}
 .details p{font-size:11px;margin-bottom:0}
+.details+.details{margin-top:18px}
+.detail-count{color:var(--muted)}
 .legend{display:flex;align-items:center;gap:22px;font-size:11px;color:var(--muted);padding:21px 0}
 .legend-note{margin-left:auto}
 .quiet-note{display:flex;align-items:center;gap:18px;padding:24px 26px;border:1px solid var(--line);border-radius:12px;margin-top:24px}
@@ -63,6 +65,7 @@ summary{cursor:pointer}
 .note-tag{margin-left:auto;font-size:9px;letter-spacing:1.5px;color:var(--muted);white-space:nowrap}
 footer{display:flex;justify-content:space-between;gap:20px;color:var(--muted);font-size:10px;border-top:1px solid var(--line);margin-top:65px;padding:23px 0}
 .separator{margin:0 10px;color:var(--line)}
+.build-credit{font-size:10px;letter-spacing:.1px}
 .error-message{padding:12px;border:1px solid var(--line);border-radius:8px;color:var(--amber);font-size:12px;margin-bottom:20px}
 .empty-state{padding:12px 0}
 .empty-state h4{font-size:17px;font-weight:500;margin:0 0 8px}

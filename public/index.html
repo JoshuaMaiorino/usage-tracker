@@ -5,17 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101313">
   <meta name="description" content="A local view of your Claude, Codex, and Grok subscription usage.">
-  <title>Usage Tracker · GPT-6</title>
+  <title>Usage Tracker · Combined</title>
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png" sizes="180x180">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js" defer></script>
+  <script src="/app.js" type="module"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to usage</a>
   <div class="shell">
     <header>
-      <a class="brand" href="/" aria-label="Usage Tracker GPT-6 home"><span class="brand-icon" aria-hidden="true">▥</span><span class="brand-copy"><span>Usage Tracker</span><span class="build-badge">GPT-6</span></span></a>
+      <a class="brand" href="/" aria-label="Usage Tracker Combined home"><span class="brand-icon" aria-hidden="true">▥</span><span class="brand-copy"><span>Usage Tracker</span><span class="build-badge">Combined</span></span></a>
       <div class="header-actions">
         <span class="local"><i></i><span id="workspace-label">Local workspace</span></span>
         <button id="theme" class="icon-button" type="button" aria-label="Switch to light theme">◐</button>
@@ -38,7 +39,7 @@
         <div class="setup-panel"><div class="eyebrow">A LITTLE SETUP. THEN YOU’RE IN.</div><h2 id="setup-title">Accounts on this PC</h2><p id="setup-description">Use the CLI logins you already have. Choose what appears on your dashboard.</p><div id="setup-accounts"></div><p id="setup-error" class="error-message" role="alert" hidden></p><div class="setup-bottom"><span id="discovery-note">Credentials are read only by this PC.</span><div class="setup-actions"><button id="rescan" type="button">Rescan logins</button><button id="enable-all" class="primary" type="button">Enable found accounts →</button></div></div></div>
       </section>
     </main>
-    <footer><span>Claude <span class="separator">/</span> ChatGPT <span class="separator">/</span> Grok</span><span>One local view. More space to make things.</span></footer>
+    <footer><span>Claude <span class="separator">/</span> ChatGPT <span class="separator">/</span> Grok</span><span class="build-credit">Combined · GPT-6 + Claude + Grok</span></footer>
   </div>
   <dialog id="settings-dialog" aria-labelledby="settings-title">
     <form id="settings-form">

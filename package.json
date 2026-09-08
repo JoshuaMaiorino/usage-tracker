@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "start:gpt6": "node server.js --port 3166",
+    "start:combined": "node server.js --port 3170",
     "test": "node --test",
     "check": "node --check server.js && node --check public/app.js"
   },

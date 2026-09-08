@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import qrcode from 'qrcode-generator';
-import { ConfigStore, PROVIDER_IDS, validateSettings } from './lib/config.js';
+import { ConfigStore, PROVIDER_IDS, validateSettings, applyDiscovery } from './lib/config.js';
 import { discoverAccounts } from './lib/discover.js';
 import { createProviders } from './lib/providers/index.js';
 import { UsageCache } from './lib/cache.js';
@@ -28,13 +28,24 @@ const STATIC_FILES = new Map([
   ['/settings', ['index.html', 'text/html; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
+  ['/disclosure-state.js', ['disclosure-state.js', 'text/javascript; charset=utf-8']],
+  ['/settings-state.js', ['settings-state.js', 'text/javascript; charset=utf-8']],
   ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json']],
   ['/icon.svg', ['icon.svg', 'image/svg+xml']],
+  ['/icons/icon-180.png', ['icons/icon-180.png', 'image/png']],
+  ['/icons/icon-192.png', ['icons/icon-192.png', 'image/png']],
+  ['/icons/icon-512.png', ['icons/icon-512.png', 'image/png']],
   ['/favicon.ico', ['icon.svg', 'image/svg+xml']],
 ]);
 
 export function localAddresses(interfaces = networkInterfaces()) {
-  return [...new Set(Object.values(interfaces).flat().filter(item => item && !item.internal && item.family === 'IPv4').map(item => item.address))];
+  // Prefer a home LAN address to VPN/CGNAT interfaces for the phone URL.
+  const rank = address => address.startsWith('192.168.') ? 0
+    : /^172\.(1[6-9]|2\d|3[01])\./.test(address) ? 1
+    : address.startsWith('10.') ? 2 : 3;
+  return [...new Set(Object.values(interfaces).flat()
+    .filter(item => item && !item.internal && item.family === 'IPv4')
+    .map(item => item.address))].sort((a, b) => rank(a) - rank(b));
 }
 
 function sendJson(response, status, payload) {
@@ -70,6 +81,7 @@ export async function createApplication({
   addresses = localAddresses(),
   now = Date.now,
   autoStart = true,
+  onDiagnostic,
 } = {}) {
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('PORT must be an integer between 1 and 65535.');
   const store = new ConfigStore(configPath);
@@ -77,7 +89,7 @@ export async function createApplication({
   let settings = await store.load(accounts);
   const boundLan = settings.lanEnabled;
   const csrfToken = randomBytes(32).toString('hex');
-  const cache = new UsageCache({ providers: providers || createProviders({ homeDir }), intervalMs: settings.refreshIntervalMs, now });
+  const cache = new UsageCache({ providers: providers || createProviders({ homeDir }), intervalMs: settings.refreshIntervalMs, now, onDiagnostic });
   cache.setEnabled(PROVIDER_IDS.filter(id => settings.enabled[id]));
   let settingsQueue = Promise.resolve();
   let actualPort = port;
@@ -100,6 +112,30 @@ export async function createApplication({
     settings: structuredClone(settings),
     csrfToken,
   });
+
+  function updateAccounts(input) {
+    const update = settingsQueue.catch(() => {}).then(async () => {
+      if (input !== undefined) {
+        try { validateSettings(input, settings); }
+        catch (error) { throw Object.assign(error, { status: 400 }); }
+      }
+      const discovered = await discovery({ homeDir });
+      let next = applyDiscovery(settings, discovered);
+      if (input !== undefined) next = validateSettings(input, next);
+      if (input?.enableAll) {
+        next.enabled = Object.fromEntries(PROVIDER_IDS.map(id => [id, discovered.some(account => account.id === id && account.found)]));
+      }
+      const changed = JSON.stringify(next) !== JSON.stringify(settings);
+      if (changed) await store.save(next);
+      accounts = discovered;
+      const enabledChanged = PROVIDER_IDS.some(id => next.enabled[id] !== settings.enabled[id]);
+      if (next.refreshIntervalMs !== settings.refreshIntervalMs) cache.setInterval(next.refreshIntervalMs);
+      settings = next;
+      if (enabledChanged) void cache.setEnabled(PROVIDER_IDS.filter(id => settings.enabled[id])).catch(() => {});
+    });
+    settingsQueue = update;
+    return update;
+  }
 
   function validHost(host) {
     const hosts = ['127.0.0.1', 'localhost'];
@@ -128,24 +164,12 @@ export async function createApplication({
       if (!['GET', 'HEAD', 'POST'].includes(request.method)) return sendJson(response, 405, { error: 'Method not allowed.' });
       if (request.method === 'POST' && !validMutation(request)) return sendJson(response, 403, { error: 'Request must come from this dashboard. Reload the page and try again.' });
       if (request.method === 'GET' && url.pathname === '/api/accounts') {
-        accounts = await discovery({ homeDir });
+        await updateAccounts();
         return sendJson(response, 200, accountResponse());
       }
       if (request.method === 'POST' && url.pathname === '/api/accounts') {
         const input = await readJson(request);
-        const update = settingsQueue.catch(() => {}).then(async () => {
-          let next;
-          try { next = validateSettings(input, settings); }
-          catch (error) { throw Object.assign(error, { status: 400 }); }
-          accounts = await discovery({ homeDir });
-          if (input.enableAll) next.enabled = Object.fromEntries(PROVIDER_IDS.map(id => [id, accounts.some(account => account.id === id && account.found)]));
-          await store.save(next);
-          settings = next;
-          cache.setInterval(settings.refreshIntervalMs);
-          cache.setEnabled(PROVIDER_IDS.filter(id => settings.enabled[id]));
-        });
-        settingsQueue = update;
-        await update;
+        await updateAccounts(input);
         if (autoStart) void cache.refresh().catch(() => {});
         return sendJson(response, 200, { ...accountResponse(), meta: meta() });
       }
@@ -212,9 +236,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   let app;
   try {
     const port = startupPort();
-    app = await createApplication({ port });
+    app = await createApplication({ port, onDiagnostic: event => console.info('[usage]', JSON.stringify(event)) });
     const info = await app.listen();
-    console.log(`Usage Tracker running at ${info.localUrl}`);
+    console.log(`Usage Tracker · Combined running at ${info.localUrl}`);
     if (info.lanUrl) console.log(`Phone view: ${info.lanUrl} (available to this network)`);
     for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await app.close(); process.exit(0); });
   } catch (error) {

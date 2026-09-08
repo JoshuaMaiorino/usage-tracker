@@ -8,6 +8,10 @@ three Codex windows (including a weekly-only general allowance), and one Grok po
 Real tokens and response bodies were not recorded in fixtures or logs. Renewal and
 concurrent-write behavior were verified with temporary synthetic credential files.
 
+A later combined-build smoke check on the same date returned successful readings from
+all three providers and now included Claude's Fable scoped restriction. The regression
+fixture for that shape is synthetic; the live response was not copied into the repository.
+
 ## Observed CLI versions
 
 The local `--version` commands reported Claude Code **2.1.263** and Grok
@@ -17,6 +21,12 @@ its API-key authentication is not used by this app. Version inspection did not
 read or print local credentials.
 
 ## Claude
+
+The combined parser accepts the canonical `limits[]` response, including named model/surface
+restrictions such as Fable. When no canonical windows validate, the legacy `five_hour` and
+`seven_day_*` fields remain supported. Zero headline allowances are real readings; zero legacy
+model buckets without a reset are treated as placeholders. Synthetic regression fixtures exercise
+the newer shape without persisting live account responses.
 
 The installed Claude binary confirms the public client ID and
 `https://platform.claude.com/v1/oauth/token` endpoint from the design. Its refresh
@@ -66,6 +76,10 @@ These meters describe **Codex coding usage**, not all ChatGPT messages. Reset
 credits are display-only, and failure of the optional expiry lookup leaves the
 main usage result available.
 
+Absolute and relative Codex reset times are supported. If the explicit stored account ID is missing,
+the adapter can use the corresponding ID-token account claim for routing. This is a metadata fallback,
+not JWT signature verification or a replacement for authenticating the usage request.
+
 ## Grok
 
 The [official authentication model](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-shell/src/auth/model.rs)
@@ -106,7 +120,8 @@ products are inferred.
 
 Only normalized usage and allowlisted discovery metadata reach the HTTP API.
 Tokens are read per operation and are not cached in the usage snapshots. Requests
-use fixed HTTPS destinations, disallow redirects, and have a 30-second timeout.
+use fixed HTTPS destinations and disallow redirects. Essential requests have a 30-second timeout;
+optional Codex reset-expiry and Grok plan lookups have an eight-second timeout.
 Upstream error bodies and raw network/filesystem errors are never passed to the
 UI or logged. A 429 preserves `Retry-After` for the scheduler.
 

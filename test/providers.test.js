@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { discoverAccounts } from '../lib/discover.js';
 import { credentialPath, readCredentials, replaceCredentials, withClaudeRefreshLock } from '../lib/credentials.js';
 import { createProviders } from '../lib/providers/index.js';
-import { parseRetryAfter } from '../lib/providers/shared.js';
+import { parseRetryAfter, requestJson } from '../lib/providers/shared.js';
 
 const NOW = Date.parse('2026-09-08T12:00:00Z');
 const CLAUDE_USAGE = { five_hour: { utilization: 32, resets_at: '2026-09-08T15:00:00Z' }, seven_day: { utilization: 70, resets_at: '2026-09-10T12:00:00Z' } };
@@ -17,6 +17,7 @@ const claudeAuth = (extra = {}) => ({ unrelated: { keep: true }, claudeAiOauth: 
 const codexAuth = () => ({ auth_mode: 'chatgpt', unrelated: { keep: true }, tokens: { access_token: 'fixture-codex-access-secret', refresh_token: 'fixture-codex-refresh-secret', id_token: 'fixture-id-token', account_id: 'fixture-account', unknown: 'keep' } });
 const grokAuth = (extra = {}) => ({ [GROK_SCOPE]: { key: 'fixture-grok-access-secret', refresh_token: 'fixture-grok-refresh-secret', expires_at: '2026-09-09T12:00:00Z', email: 'example@example.invalid', oidc_issuer: 'https://auth.x.ai', ...extra } });
 const jsonResponse = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...headers } });
+const accountJwt = accountId => `fixture.${Buffer.from(JSON.stringify({ 'https://api.openai.com/auth': { chatgpt_account_id: accountId } })).toString('base64url')}.signature`;
 
 async function fixture(t) {
   const homeDir = await mkdtemp(join(tmpdir(), 'usage-provider-test-'));
@@ -213,6 +214,91 @@ test('Codex rereads on 401 and does not refresh a token already replaced by the 
   assert.equal(count, 2);
 });
 
+test('Codex prefers explicit account IDs, falls back to JWT claims, and rejects unsafe header claims', async t => {
+  const f = await fixture(t);
+  for (const [accountId, idToken, accessToken, expected] of [
+    ['fixture-explicit', accountJwt('fixture-jwt-id'), 'fixture-access', 'fixture-explicit'],
+    [undefined, accountJwt('fixture-jwt-id'), 'fixture-access', 'fixture-jwt-id'],
+    [undefined, 'malformed-id', accountJwt('fixture-access-id'), 'fixture-access-id'],
+    [undefined, accountJwt('bad\r\nclaim'), 'fixture-access', undefined],
+    [undefined, accountJwt({ invalid: true }), 'fixture-access', undefined],
+  ]) {
+    const auth = codexAuth();
+    auth.tokens.account_id = accountId;
+    auth.tokens.id_token = idToken;
+    auth.tokens.access_token = accessToken;
+    await f.write('chatgpt', auth);
+    const providers = createProviders({ ...f, fetchImpl: async (_url, options) => {
+      assert.equal(options.headers['ChatGPT-Account-Id'], expected);
+      return jsonResponse(CODEX_USAGE);
+    } });
+    assert.doesNotMatch(JSON.stringify(await providers.chatgpt()), /fixture-|claim|signature/);
+  }
+});
+
+test('Codex relative resets use the provider clock rather than the machine clock', async t => {
+  const f = await fixture(t);
+  await f.write('chatgpt', codexAuth());
+  let now = NOW;
+  const providers = createProviders({ ...f, now: () => now, fetchImpl: async url => {
+    if (url.endsWith('rate-limit-reset-credits')) {
+      now += 8000;
+      return jsonResponse({});
+    }
+    return jsonResponse({
+      rate_limit: { primary_window: { used_percent: 0, limit_window_seconds: 18000, reset_after_seconds: 90 } },
+      rate_limit_reset_credits: { available_count: 1 },
+    });
+  } });
+  assert.equal((await providers.chatgpt()).windows[0].resetsAt, new Date(NOW + 90_000).toISOString());
+});
+
+for (const id of ['chatgpt', 'grok']) {
+  test(`${id} keeps usage when optional metadata body reaches its eight-second deadline`, async t => {
+    const f = await fixture(t);
+    await f.write(id, id === 'chatgpt' ? codexAuth() : grokAuth());
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    let started;
+    const bodyStarted = new Promise(resolve => { started = resolve; });
+    let metadataSignal;
+    const providers = createProviders({ ...f, now: () => NOW, fetchImpl: async (url, options) => {
+      if (url.endsWith('rate-limit-reset-credits') || url.endsWith('settings')) {
+        metadataSignal = options.signal;
+        return { ok: true, json: () => { started(); return new Promise(() => {}); } };
+      }
+      return jsonResponse(id === 'chatgpt' ? { ...CODEX_USAGE, rate_limit_reset_credits: { available_count: 2 } } : GROK_USAGE);
+    } });
+    const pending = providers[id]();
+    await bodyStarted;
+    t.mock.timers.tick(7999);
+    assert.equal(metadataSignal.aborted, false);
+    t.mock.timers.tick(1);
+    const result = await pending;
+    assert.equal(metadataSignal.aborted, true);
+    assert.equal(result.windows[0].usedPercent, id === 'chatgpt' ? 41 : 26);
+    if (id === 'chatgpt') assert.deepEqual(result.extras, [{ label: 'Banked resets', value: '2' }]);
+  });
+}
+
+test('essential provider deadline spans fetching headers and consuming a stalled body', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let headersReady;
+  const headers = new Promise(resolve => { headersReady = resolve; });
+  let started;
+  const bodyStarted = new Promise(resolve => { started = resolve; });
+  let signal;
+  const pending = requestJson(async (_url, options) => { signal = options.signal; return headers; }, 'https://provider.invalid/usage');
+  const rejected = assert.rejects(pending, error => error.code === 'timeout' && !error.message.includes('fixture'));
+  t.mock.timers.tick(5000);
+  headersReady({ ok: true, json: () => { started(); return new Promise(() => {}); } });
+  await bodyStarted;
+  t.mock.timers.tick(24999);
+  assert.equal(signal.aborted, false);
+  t.mock.timers.tick(1);
+  await rejected;
+  assert.equal(signal.aborted, true);
+});
+
 test('Codex does not loop when renewed credentials still return 401', async t => {
   const f = await fixture(t);
   await f.write('chatgpt', codexAuth());
@@ -248,6 +334,23 @@ test('failed refresh and 429 produce safe typed errors without upstream secrets'
   });
   assert.equal((await f.read('claude')).claudeAiOauth.refreshToken, 'fixture-claude-refresh-secret');
   assert.deepEqual(await readdir(f.homeDir), ['.claude']);
+});
+
+test('429 retains the full Retry-After when error-body cancellation stalls or rejects', async () => {
+  for (const cancel of [() => new Promise(() => {}), () => Promise.reject(new Error('fixture-upstream-secret'))]) {
+    let cancelled = false;
+    await assert.rejects(requestJson(async () => ({
+      ok: false, status: 429, headers: new Headers({ 'Retry-After': '172800' }),
+      body: { cancel: () => { cancelled = true; return cancel(); } },
+      json: () => assert.fail('never read an upstream error body'),
+    }), 'https://provider.invalid/usage', {}, { id: 'claude', now: () => NOW, timeoutMs: 20 }), error => {
+      assert.equal(error.code, 'rate_limited');
+      assert.equal(error.retryAfterMs, 172800000);
+      assert.doesNotMatch(error.message + JSON.stringify(error), /fixture-/);
+      return true;
+    });
+    assert.equal(cancelled, true);
+  }
 });
 
 test('Grok expired credentials leave its OS lock and auth file untouched', async t => {

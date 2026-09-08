@@ -1,0 +1,12 @@
+{
+  "five_hour": { "utilization": 99, "resets_at": "2026-09-09T00:00:00Z" },
+  "seven_day": { "utilization": 99, "resets_at": "2026-09-09T00:00:00Z" },
+  "seven_day_nimbus_quill": { "utilization": 0, "resets_at": null },
+  "nimbus_quill": { "utilization": 0, "resets_at": null },
+  "limits": [
+    { "kind": "weekly_scoped", "group": "weekly", "percent": 100, "resets_at": "2026-09-14T12:00:00Z", "scope": { "model": { "id": null, "display_name": "Fable" }, "surface": null } },
+    { "kind": "weekly_all", "group": "weekly", "percent": 68, "resets_at": "2026-09-14T12:00:00Z", "scope": null },
+    { "kind": "session", "group": "session", "percent": 8, "resets_at": "2026-09-08T19:00:00Z", "scope": null }
+  ],
+  "spend": { "enabled": false, "used": { "amount_minor": 0, "currency": "USD", "exponent": 2 } }
+}

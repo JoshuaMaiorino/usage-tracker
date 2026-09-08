@@ -6,9 +6,9 @@ const START = Date.parse('2026-09-08T12:00:00Z');
 const reading = (usedPercent = 25) => ({
   plan: 'Synthetic plan', windows: [{ id: 'session', label: 'Session', usedPercent, resetsAt: '2026-09-08T17:00:00.000Z' }], extras: [],
 });
-function harness(providers, intervalMs = 180_000) {
+function harness(providers, intervalMs = 180_000, options = {}) {
   let current = START;
-  const cache = new UsageCache({ providers, intervalMs, now: () => current, random: () => 0.5 });
+  const cache = new UsageCache({ providers, intervalMs, now: () => current, random: () => 0.5, ...options });
   return { cache, advance: (milliseconds) => { current += milliseconds; } };
 }
 
@@ -221,4 +221,181 @@ test('consumer mutation cannot corrupt last-good data', async () => {
   await cache.refresh();
   cache.snapshot()[0].windows[0].usedPercent = 0;
   assert.equal(cache.snapshot()[0].windows[0].usedPercent, 25);
+});
+
+test('errors needing login or parser changes keep a five-minute floor across settings and toggles', async () => {
+  for (const code of ['missing', 'unreadable', 'malformed', 'unsupported', 'auth', 'format', 'credentials_write', 'refresh_unsupported', 'forbidden']) {
+    let calls = 0;
+    const { cache, advance } = harness({ claude: async () => {
+      calls += 1;
+      throw Object.assign(new Error('SYNTHETIC_SECRET'), { code });
+    } });
+    await cache.setEnabled(['claude']);
+    await cache.refresh();
+    assert.equal(cache.snapshot()[0].nextRetryAt, '2026-09-08T12:05:00.000Z', code);
+    cache.setInterval(120_000);
+    advance(299_999);
+    await cache.setEnabled([]);
+    await cache.setEnabled(['claude']);
+    assert.equal((await cache.refresh({ force: true })).refreshed, false, code);
+    assert.equal(calls, 1, code);
+    advance(1);
+    assert.equal((await cache.refresh({ force: true })).refreshed, true, code);
+    assert.equal(calls, 2, code);
+  }
+});
+
+test('transient failures back off exponentially across error types and stop at one hour', async () => {
+  const codes = ['network', 'timeout', 'provider', 'credentials_busy'];
+  let failures = 0;
+  const { cache, advance } = harness({ claude: async () => {
+    throw Object.assign(new Error(), { code: codes[failures++ % codes.length] });
+  } });
+  await cache.setEnabled(['claude']);
+  let current = START;
+  for (const delay of [180_000, 360_000, 720_000, 1_440_000, 2_880_000, 3_600_000, 3_600_000]) {
+    await cache.refresh({ force: true });
+    assert.equal(Date.parse(cache.snapshot()[0].nextRetryAt) - current, delay);
+    advance(delay - 1);
+    assert.equal((await cache.refresh({ force: true })).refreshed, false);
+    advance(1);
+    current += delay;
+  }
+  assert.equal(failures, 7);
+});
+
+test('recovering from a transient outage resets its backoff and retains stale readings until success', async () => {
+  let failure = false;
+  const { cache, advance } = harness({ claude: async () => {
+    if (failure) throw Object.assign(new Error(), { code: 'network' });
+    return reading(64);
+  } });
+  await cache.setEnabled(['claude']);
+  await cache.refresh();
+  failure = true;
+  advance(180_000);
+  await cache.refresh();
+  advance(180_000);
+  await cache.refresh();
+  assert.equal(cache.snapshot()[0].nextRetryAt, '2026-09-08T12:12:00.000Z');
+  assert.equal(cache.snapshot()[0].lastSuccessAt, '2026-09-08T12:00:00.000Z');
+  assert.equal(cache.snapshot()[0].status, 'stale');
+  assert.equal(cache.snapshot()[0].windows[0].usedPercent, 64);
+  failure = false;
+  advance(360_000);
+  await cache.refresh();
+  assert.equal(cache.snapshot()[0].status, 'ok');
+  assert.equal(cache.snapshot()[0].nextRetryAt, null);
+  failure = true;
+  advance(180_000);
+  await cache.refresh();
+  assert.equal(cache.snapshot()[0].nextRetryAt, '2026-09-08T12:18:00.000Z');
+});
+
+test('one provider waiting for login does not delay another provider or shorten the configured interval', async () => {
+  const calls = { claude: 0, grok: 0 };
+  const { cache, advance } = harness({
+    claude: async () => { calls.claude += 1; throw Object.assign(new Error(), { code: 'auth' }); },
+    grok: async () => { calls.grok += 1; return reading(); },
+  });
+  await cache.setEnabled(['claude', 'grok']);
+  await cache.refresh();
+  assert.equal(cache.nextRefreshAt, '2026-09-08T12:03:00.000Z');
+  advance(180_000);
+  await cache.refresh();
+  assert.deepEqual(calls, { claude: 1, grok: 2 });
+  assert.equal(cache.nextRefreshAt, '2026-09-08T12:05:00.000Z');
+  cache.setInterval(600_000);
+  assert.equal(cache.nextRefreshAt, '2026-09-08T12:10:00.000Z');
+});
+
+test('a pending provider does not prevent another due provider from refreshing', async () => {
+  let complete;
+  let grokCalls = 0;
+  const { cache, advance } = harness({
+    claude: () => new Promise((resolve) => { complete = resolve; }),
+    grok: async () => { grokCalls += 1; return reading(); },
+  });
+  await cache.setEnabled(['claude', 'grok']);
+  const first = cache.refresh();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(grokCalls, 1);
+  advance(180_000);
+  const second = cache.refresh();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(grokCalls, 2);
+  assert.equal(cache.snapshot()[0].refreshing, true);
+  complete(reading());
+  await Promise.all([first, second]);
+});
+
+test('diagnostics contain only frozen timing and status fields for actual provider attempts', async () => {
+  const events = [];
+  let fail = false;
+  const { cache, advance } = harness({ claude: async () => {
+    advance(25);
+    if (fail) throw Object.assign(new Error('Bearer SYNTHETIC_SECRET'), {
+      code: 'SYNTHETIC_SECRET', path: 'SYNTHETIC_SECRET', body: 'SYNTHETIC_SECRET',
+    });
+    return { ...reading(), access_token: 'SYNTHETIC_SECRET' };
+  } }, 180_000, { onDiagnostic: (event) => events.push(event) });
+  await cache.setEnabled(['claude']);
+  await cache.refresh();
+  await cache.refresh({ force: true });
+  assert.equal(events.length, 2);
+  fail = true;
+  advance(180_000);
+  await cache.refresh();
+  assert.deepEqual(events, [
+    { providerId: 'claude', event: 'refresh_started', at: '2026-09-08T12:00:00.000Z' },
+    { providerId: 'claude', event: 'refresh_succeeded', at: '2026-09-08T12:00:00.025Z', durationMs: 25 },
+    { providerId: 'claude', event: 'refresh_started', at: '2026-09-08T12:03:00.025Z' },
+    { providerId: 'claude', event: 'refresh_failed', at: '2026-09-08T12:03:00.050Z', durationMs: 25, errorCode: 'network', nextRetryAt: '2026-09-08T12:06:00.050Z' },
+  ]);
+  assert.ok(events.every(Object.isFrozen));
+  assert.equal(JSON.stringify(events).includes('SYNTHETIC_SECRET'), false);
+});
+
+test('concurrent readers share one start and completion diagnostic', async () => {
+  const events = [];
+  let complete;
+  const { cache } = harness({ claude: () => new Promise((resolve) => { complete = resolve; }) }, 180_000, {
+    onDiagnostic: (event) => events.push(event),
+  });
+  await cache.setEnabled(['claude']);
+  const first = cache.refresh();
+  const second = cache.refresh({ force: true });
+  await Promise.resolve();
+  assert.deepEqual(events.map(({ event }) => event), ['refresh_started']);
+  complete(reading());
+  await Promise.all([first, second]);
+  assert.deepEqual(events.map(({ event }) => event), ['refresh_started', 'refresh_succeeded']);
+});
+
+test('throwing or rejecting diagnostic observers cannot affect refresh, errors, or recovery', async () => {
+  for (const onDiagnostic of [
+    () => { throw new Error('observer failed'); },
+    async () => { throw new Error('observer rejected'); },
+    () => new Promise(() => {}),
+    (event) => { event.providerId = 'SYNTHETIC_SECRET'; },
+  ]) {
+    let failure = false;
+    const { cache, advance } = harness({ claude: async () => {
+      if (failure) throw Object.assign(new Error(), { code: 'auth' });
+      return reading();
+    } }, 180_000, { onDiagnostic });
+    await cache.setEnabled(['claude']);
+    await cache.refresh();
+    assert.equal(cache.snapshot()[0].status, 'ok');
+    failure = true;
+    advance(180_000);
+    await cache.refresh();
+    assert.equal(cache.snapshot()[0].error.code, 'auth');
+    assert.equal(cache.snapshot()[0].nextRetryAt, '2026-09-08T12:08:00.000Z');
+    failure = false;
+    advance(300_000);
+    await cache.refresh();
+    assert.equal(cache.snapshot()[0].status, 'ok');
+    assert.equal(cache.snapshot()[0].refreshing, false);
+  }
 });

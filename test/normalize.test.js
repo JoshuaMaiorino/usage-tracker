@@ -33,6 +33,55 @@ test('Claude missing values never become zero and reset does not control utiliza
   assert.equal(result.plan, null);
 });
 
+test('Claude canonical limits win over legacy decoys and surface the exhausted Fable allowance', async () => {
+  const data = await fixture('claude-canonical');
+  for (const payload of [data, { limits: data.limits, spend: data.spend }]) {
+    const result = normalizeClaude(payload);
+    assert.deepEqual(result.windows.map(window => [window.id, window.usedPercent]), [
+      ['session', 8], ['weekly', 68], ['weekly-fable', 100],
+    ]);
+    assert.equal(result.windows[2].scope, 'Fable');
+    assert.equal(result.windows[2].durationSeconds, 604800);
+    assert.equal(result.windows[2].resetsAt, '2026-09-14T12:00:00.000Z');
+    assert.deepEqual(result.extras, [
+      { label: 'Usage credits', value: 'Disabled' }, { label: 'Extra usage spent', value: '$0.00' },
+    ]);
+  }
+});
+
+test('Claude preserves canonical zeroes and stable identities, omits invalid and unnamed scoped values', () => {
+  const limits = [
+    { kind: 'session', percent: 0 },
+    { kind: 'weekly_scoped', percent: 0, scope: { model: { id: 'fable', display_name: 'Fable' } } },
+    { kind: 'weekly_scoped', percent: 101, scope: { surface: { id: 'oauth_apps', display_name: 'OAuth apps' } } },
+    { kind: 'weekly_scoped', percent: 10 },
+    { kind: 'weekly_scoped', percent: '0', scope: { model: { id: 'invalid' } } },
+    { kind: 'weekly_all', percent: null },
+    { kind: 'unknown', percent: 10 },
+    { kind: { toString: null }, percent: 10 }, null, [],
+  ];
+  const first = normalizeClaude({ limits });
+  assert.deepEqual(first.windows.map(window => [window.id, window.usedPercent, window.resetsAt]), [
+    ['session', 0, null], ['weekly-fable', 0, null], ['weekly-oauth-apps', 101, null],
+  ]);
+  const second = normalizeClaude({ limits: limits.toReversed() });
+  assert.deepEqual(first.windows.map(window => window.id).sort(), second.windows.map(window => window.id).sort());
+  limits[1].scope.model.display_name = 'Fable renamed';
+  assert.equal(normalizeClaude({ limits }).windows[1].id, 'weekly-fable');
+});
+
+test('Claude falls back to legacy keys, omitting only no-reset zero model placeholders', () => {
+  for (const limits of [undefined, [], [null, { kind: 'unknown', percent: 4 }]]) {
+    const result = normalizeClaude({
+      limits, five_hour: { utilization: 0 }, seven_day: { utilization: 0, resets_at: null },
+      seven_day_nimbus_quill: { utilization: 0, resets_at: null },
+      seven_day_sonnet: { utilization: 0, resets_at: '2026-09-14T12:00:00Z' },
+      seven_day_fable: { utilization: 100, resets_at: null },
+    });
+    assert.deepEqual(result.windows.map(window => window.id), ['session', 'weekly', 'weekly-sonnet', 'weekly-fable']);
+  }
+});
+
 test('Claude reports disabled credits and real zero spending from typed money', () => {
   const result = normalizeClaude({
     five_hour: { utilization: 10 },
@@ -101,6 +150,27 @@ test('Codex unknown duration is labeled accurately and absent duration is omitte
   } });
   assert.equal(result.windows.length, 1);
   assert.equal(result.windows[0].label, '1-hour window');
+});
+
+test('Codex relative reset seconds use the injected clock across headline and scoped windows', () => {
+  const now = Date.parse('2026-09-08T12:00:00Z');
+  const result = normalizeChatgpt({
+    rate_limit: {
+      primary_window: { used_percent: 5, limit_window_seconds: 604800, reset_after_seconds: 3600 },
+      secondary_window: { used_percent: 0, limit_window_seconds: 18000, resets_in_seconds: 0 },
+    },
+    additional_rate_limits: [{ limit_name: 'Fable', rate_limit: {
+      primary_window: { used_percent: 25, limit_window_seconds: 604800, reset_at: 'invalid', reset_after_seconds: 60 },
+    } }],
+    code_review_rate_limit: { primary_window: { used_percent: 10, limit_window_seconds: 604800, reset_at: '2026-09-15T12:00:00Z', reset_after_seconds: 60 } },
+  }, { now });
+  assert.deepEqual(result.windows.map(window => window.resetsAt), [
+    '2026-09-08T12:00:00.000Z', '2026-09-08T13:00:00.000Z', '2026-09-08T12:01:00.000Z', '2026-09-15T12:00:00.000Z',
+  ]);
+  for (const reset_after_seconds of [null, '', '5', -1, Infinity, Number.MAX_VALUE]) {
+    const invalid = normalizeChatgpt({ rate_limit: { primary_window: { used_percent: 0, limit_window_seconds: 18000, reset_after_seconds } } }, { now });
+    assert.equal(invalid.windows[0].resetsAt, null);
+  }
 });
 
 test('Codex named-window identities remain stable when the provider reorders scopes', () => {

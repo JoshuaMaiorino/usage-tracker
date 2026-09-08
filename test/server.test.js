@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { request as httpRequest } from 'node:http';
-import { createApplication, startupPort } from '../server.js';
+import { createApplication, startupPort, localAddresses } from '../server.js';
 import { ConfigStore } from '../lib/config.js';
 
 const accounts = [
@@ -18,6 +18,7 @@ test('comparison launch selects its own port ahead of a shared PORT environment 
   assert.equal(startupPort([], { PORT: '3146' }), 3146);
   assert.equal(startupPort(['--port', '3166'], { PORT: '3140' }), 3166);
   assert.equal(startupPort(['--port=3166'], {}), 3166);
+  assert.equal(startupPort(['--port', '3170'], { PORT: '3140' }), 3170);
   for (const args of [['--port'], ['--port', '0'], ['--port', '65536'], ['--port', 'invalid'], ['--unknown']]) {
     assert.throws(() => startupPort(args, {}), /PORT/);
   }
@@ -32,7 +33,7 @@ async function setup(t, options = {}) {
     counters[account.id]++;
     return { id: account.id, name: account.name, plan: account.plan, windows: [{ id: 'weekly', label: 'Weekly', usedPercent: 0, resetsAt: null }], extras: [] };
   }]));
-  const app = await createApplication({ port: 0, configPath, discovery: async () => accounts, providers, autoStart: false, addresses: ['192.168.1.99'] });
+  const app = await createApplication({ port: 0, configPath, discovery: options.discovery || (async () => accounts), providers, autoStart: false, addresses: ['192.168.1.99'] });
   const meta = await app.listen();
   t.after(async () => { await app.close(); await rm(dir, { recursive: true, force: true }); });
   const base = meta.localUrl;
@@ -177,4 +178,69 @@ test('malformed persisted config is preserved and explained', async t => {
   await writeFile(path, '{broken');
   await assert.rejects(new ConfigStore(path).load(accounts), /config.json is invalid/);
   assert.equal(await readFile(path, 'utf8'), '{broken');
+});
+
+test('new sign-ins enable once, persist, and subsequent rescans preserve opt-outs', async t => {
+  let discovered = structuredClone(accounts);
+  const ctx = await setup(t, { discovery: async () => discovered });
+  assert.equal((await ctx.get('/api/accounts')).data.settings.seen.grok, false);
+  // Saving unrelated settings must not mark a missing login as deliberately off.
+  await ctx.post('/api/accounts', { enabled: { grok: false }, refreshIntervalMs: 300_000 });
+  discovered = discovered.map(account => account.id === 'grok' ? { ...account, found: true, status: 'found' } : account);
+  const found = (await ctx.get('/api/accounts')).data;
+  assert.equal(found.settings.enabled.grok, true);
+  assert.equal(found.settings.seen.grok, true);
+  assert.equal((await new ConfigStore(ctx.configPath).load(discovered)).enabled.grok, true);
+  await ctx.post('/api/accounts', { enabled: { grok: false } });
+  discovered = discovered.map(account => account.id === 'grok' ? { ...account, found: false, status: 'missing' } : account);
+  await ctx.get('/api/accounts');
+  discovered = discovered.map(account => account.id === 'grok' ? { ...account, found: true, status: 'found' } : account);
+  const again = (await ctx.get('/api/accounts')).data;
+  assert.equal(again.settings.enabled.grok, false);
+  assert.equal((await new ConfigStore(ctx.configPath).load(discovered)).enabled.grok, false);
+  assert.equal((await ctx.post('/api/accounts', { seen: { grok: false } })).status, 400);
+});
+
+test('concurrent discovery and explicit opt-out cannot re-enable an account', async t => {
+  let discovered = structuredClone(accounts);
+  const ctx = await setup(t, { discovery: async () => discovered });
+  discovered = discovered.map(account => ({ ...account, found: true, status: 'found' }));
+  const [, response] = await Promise.all([
+    ctx.get('/api/accounts'), ctx.post('/api/accounts', { enabled: { grok: false } }),
+  ]);
+  assert.equal(response.status, 200);
+  assert.equal((await ctx.get('/api/accounts')).data.settings.enabled.grok, false);
+  assert.deepEqual(await readdir(ctx.dir), ['config.json']);
+});
+
+test('phone URL candidates prefer home networks and keep valid alternatives', () => {
+  const entry = (address, extra = {}) => ({ address, family: 'IPv4', internal: false, ...extra });
+  const addresses = localAddresses({
+    vpn: [entry('100.70.1.2')], ethernet: [entry('10.1.2.3')],
+    wifi: [entry('192.168.1.8'), entry('192.168.1.8')],
+    virtual: [entry('172.20.1.1')], loopback: [entry('127.0.0.1', { internal: true })],
+    v6: [entry('::1', { family: 'IPv6' })],
+  });
+  assert.deepEqual(addresses, ['192.168.1.8', '172.20.1.1', '10.1.2.3', '100.70.1.2']);
+  assert.deepEqual(localAddresses({}), []);
+});
+
+test('combined shell and phone icons are served from the static allowlist', async t => {
+  const ctx = await setup(t);
+  const html = await (await fetch(ctx.base)).text();
+  assert.match(html, /Combined/);
+  for (const size of [180, 192, 512]) {
+    const response = await fetch(`${ctx.base}/icons/icon-${size}.png`);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'image/png');
+    const png = Buffer.from(await response.arrayBuffer());
+    assert.equal(png.subarray(1, 4).toString(), 'PNG');
+    assert.equal(png.readUInt32BE(16), size);
+    assert.equal(png.readUInt32BE(20), size);
+  }
+  for (const path of ['/disclosure-state.js', '/settings-state.js']) {
+    const module = await fetch(`${ctx.base}${path}`);
+    assert.equal(module.status, 200);
+    assert.match(module.headers.get('content-type'), /javascript/);
+  }
 });

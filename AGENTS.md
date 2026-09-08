@@ -7,7 +7,8 @@ Local Node dashboard for Claude, ChatGPT/Codex, and Grok **subscription usage me
 
 ## Project state
 
-Implemented on the `GPT-6` comparison branch. `docs/design.md` remains the authoritative spec;
+Implemented on the `combined` branch from GPT-6, Claude and Grok. `docs/combined.md` records
+the integration decisions and links all three reviews. `docs/design.md` remains the authoritative spec;
 `docs/mockups/` is the original visual reference. Native Node HTTP serves the dashboard in `public/`.
 Provider support and credential refresh limitations are recorded in `docs/provider-notes.md`.
 
@@ -83,7 +84,7 @@ state can change underneath you mid-task (a `master` → `main` rename already h
 ```bash
 npm ci       # one dependency: local QR code generation
 npm start    # node server.js, default 127.0.0.1:3140
-npm run start:gpt6 # this comparison build at 127.0.0.1:3166; header identifies GPT-6
+npm run start:combined # combined build at 127.0.0.1:3170; header identifies Combined
 npm test     # Node's built-in test runner; synthetic providers and temporary credential files
 npm run check
 ```
