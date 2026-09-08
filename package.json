@@ -1,0 +1,13 @@
+{
+  "name": "usage-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local dashboard for Claude, ChatGPT, and Grok subscription usage meters.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}
