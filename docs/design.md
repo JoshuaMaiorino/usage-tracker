@@ -2,7 +2,8 @@
 
 A tiny local web app you leave open on the PC (or open on your phone on the same Wi-Fi) that shows **Claude / ChatGPT / Grok subscription usage meters** — the same bars as each product's Usage page — so you can pick which agent still has headroom.
 
-**Status:** design only. Implementation has not started.
+**Status:** implemented on the `GPT-6` comparison branch. See [provider-notes.md](provider-notes.md)
+for verified CLI behavior and integration limits, and [../README.md](../README.md) for operation.
 
 ## Goal
 
@@ -266,7 +267,8 @@ more care than one line, because a bug here logs the user out of a tool they dep
   in flight, prefer the CLI's newer value and drop ours.
 - **Atomic writes only.** Write a temp file in the same directory, then rename over the original. A partial
   write to `.credentials.json` from a crash mid-write is a logout.
-- **Back up before the first write** to each file, and never widen file permissions.
+- Preserve unknown fields and file permissions. Do not create persistent credential backups; only the
+  final credential/config files and temporary atomic-write/official-lock artifacts are permitted.
 - **Refresh with margin** — treat a token as expired at `expiresAt - 5min`, not at `expiresAt`, so a refresh
   is not racing its own expiry.
 - Prefer not refreshing at all when a cached snapshot is still fresh enough to render.

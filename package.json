@@ -8,6 +8,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test",
+    "check": "node --check server.js && node --check public/app.js"
+  },
+  "dependencies": {
+    "qrcode-generator": "2.0.4"
   }
 }

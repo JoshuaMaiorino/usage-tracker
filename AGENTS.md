@@ -7,9 +7,9 @@ Local Node dashboard for Claude, ChatGPT/Codex, and Grok **subscription usage me
 
 ## Project state
 
-Design-only. `docs/design.md` is the authoritative spec; no application code exists yet. `package.json` points
-`npm start` at `server.js`, which has not been written. Follow the design doc's implementation order:
-scaffold → discovery/settings → Claude → Codex → Grok → cache/backoff → token refresh → LAN/PWA → polish.
+Implemented on the `GPT-6` comparison branch. `docs/design.md` remains the authoritative spec;
+`docs/mockups/` is the original visual reference. Native Node HTTP serves the dashboard in `public/`.
+Provider support and credential refresh limitations are recorded in `docs/provider-notes.md`.
 
 ## Why this approach
 
@@ -58,7 +58,10 @@ normalized shape to `public/app.js`.
 - Writing rotated tokens back into those CLI files is allowed (same as the official CLIs). Claude access
   tokens last ~1h, so refresh is mandatory, not optional — but a refresh bug can log the user out of
   Claude Code, since this app shares mutable state with the real CLI
-- Rotated CLI tokens and `data/config.json` are the only things this app may write
+- Rotated CLI tokens and `data/config.json` are the only persistent runtime outputs. Atomic replacement
+  may use temporary files in the destination directory, cleaned up after the write. Token refresh may
+  temporarily acquire the official CLI's lock directories and heartbeat files using its verified protocol;
+  remove only locks acquired by this operation. Do not create credential backups or app-owned lockfiles.
 
 ## Out of scope for v1
 
@@ -78,10 +81,14 @@ state can change underneath you mid-task (a `master` → `main` rename already h
 ## Commands
 
 ```bash
-npm start    # node server.js — not implemented yet
+npm ci       # one dependency: local QR code generation
+npm start    # node server.js, default 127.0.0.1:3140
+npm test     # Node's built-in test runner; synthetic providers and temporary credential files
+npm run check
 ```
 
-No test runner, linter, or build step is configured yet. If you add one, keep the near-zero-dependency posture.
+No build step or linter is required. Keep the near-zero-dependency posture. Tests must never rename or
+modify real CLI credential files. Inject a temporary home directory and provider fetch functions instead.
 
 ## Docs vs this file
 

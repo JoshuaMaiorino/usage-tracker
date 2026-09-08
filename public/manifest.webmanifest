@@ -1,0 +1,12 @@
+{
+  "id": "/",
+  "name": "Usage Tracker",
+  "short_name": "Usage",
+  "description": "Your local Claude, Codex, and Grok subscription meters.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#101313",
+  "theme_color": "#101313",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

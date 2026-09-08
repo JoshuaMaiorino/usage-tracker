@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Usage Tracker · Design preview</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="preview"><span><b>DESIGN PREVIEW</b> · Sample data only</span><div class="scenarios" aria-label="Preview scenario"><button data-view="dashboard" aria-pressed="true">Dashboard</button><button data-view="setup" aria-pressed="false">First launch</button><button data-view="errors" aria-pressed="false">Error states</button></div></div>
+  <div class="shell">
+    <header><a class="brand" href="index.html"><span class="brand-icon" aria-hidden="true">▥</span> Usage Tracker</a><div class="header-actions"><span class="local"><i></i> Local workspace</span><button id="theme" class="icon-button" aria-label="Switch to light theme">◐</button><button id="settings">Settings <span aria-hidden="true">↗</span></button></div></header>
+    <main>
+      <section class="intro"><div><div class="eyebrow">YOUR SUBSCRIPTIONS, AT A GLANCE</div><h1>Room for your next idea.</h1><p>Check your limits. Pick an agent. Keep building.</p></div><div class="refresh-group"><button id="refresh">↻ &nbsp; Refresh preview</button><span id="refresh-note">Sample snapshot · just now</span></div></section>
+      <section id="dashboard" aria-label="Subscription usage">
+        <div class="section-heading"><h2>Usage overview <span id="account-count">3 accounts</span></h2><span class="muted">% of allowance used</span></div>
+        <div id="cards" class="cards"></div>
+        <div class="legend"><span><i class="green"></i> Under 70%</span><span><i class="amber"></i> 70–89%</span><span><i class="red"></i> 90% or more</span><span class="legend-note">Each provider has its own limits.</span></div>
+        <aside class="quiet-note"><span class="note-icon" aria-hidden="true">⌁</span><div><strong>Your PC keeps everything together.</strong><p>The planned app reads your local CLI logins and checks usage every 3 minutes.</p></div><span class="note-tag">LOCAL BY DESIGN</span></aside>
+      </section>
+      <section id="setup" hidden aria-labelledby="setup-title"><div class="setup-panel"><div class="eyebrow">A LITTLE SETUP. THEN YOU’RE IN.</div><h2 id="setup-title">Accounts on this PC</h2><p>Use the CLI logins you already have. Choose what appears on your dashboard.</p><div id="setup-accounts"></div><div class="setup-bottom"><span>Simulated discovery · no files accessed</span><button id="enable-all" class="primary">Enable found accounts →</button></div></div></section>
+    </main>
+    <footer><span>Claude <span class="separator">/</span> ChatGPT <span class="separator">/</span> Grok</span><span>One local view. More space to make things.</span></footer>
+  </div>
+  <dialog id="settings-dialog" aria-labelledby="settings-title"><form method="dialog"><div class="dialog-heading"><div><div class="eyebrow">MAKE IT YOURS</div><h2 id="settings-title">Workspace settings</h2></div><button aria-label="Close settings" value="cancel">✕</button></div><p>Preview controls only. Changes last until you reload.</p><div id="settings-accounts"></div><label class="setting-row" for="interval"><span><strong>Refresh interval</strong><small>The server will share one schedule across viewers.</small></span><select id="interval"><option value="2">2 minutes</option><option value="3" selected>3 minutes</option><option value="5">5 minutes</option></select></label><label class="setting-row" for="lan"><span><strong>Allow phones on this Wi-Fi</strong><small>Anyone on this network could view your usage.</small></span><input id="lan" type="checkbox"></label><p id="lan-note" class="lan-note">Localhost only · 127.0.0.1:3140</p><button id="save" class="primary" value="save">Save preview settings</button></form></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

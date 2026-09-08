@@ -1,0 +1,21 @@
+{
+  "plan_type": "pro",
+  "rate_limit": {
+    "primary_window": { "used_percent": 87, "limit_window_seconds": 604800, "reset_at": 1789387200 },
+    "secondary_window": { "used_percent": 13, "limit_window_seconds": 18000, "reset_at": 1788894000 }
+  },
+  "additional_rate_limits": [
+    {
+      "limit_name": "Codex Spark",
+      "metered_feature": "codex_spark",
+      "rate_limit": {
+        "primary_window": { "used_percent": 0, "limit_window_seconds": 604800, "reset_at": 1789387200 }
+      }
+    }
+  ],
+  "code_review_rate_limit": {
+    "primary_window": { "used_percent": 5, "limit_window_seconds": 604800, "reset_at": 1789387200 }
+  },
+  "credits": { "unlimited": false, "balance": 15.5 },
+  "rate_limit_reset_credits": { "available_count": 2 }
+}

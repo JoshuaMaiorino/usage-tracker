@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101313">
+  <meta name="description" content="A local view of your Claude, Codex, and Grok subscription usage.">
+  <title>Usage Tracker</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to usage</a>
+  <div class="shell">
+    <header>
+      <a class="brand" href="/" aria-label="Usage Tracker home"><span class="brand-icon" aria-hidden="true">▥</span> Usage Tracker</a>
+      <div class="header-actions">
+        <span class="local"><i></i><span id="workspace-label">Local workspace</span></span>
+        <button id="theme" class="icon-button" type="button" aria-label="Switch to light theme">◐</button>
+        <button id="settings" type="button">Settings <span aria-hidden="true">↗</span></button>
+      </div>
+    </header>
+    <main id="main">
+      <section class="intro">
+        <div><div class="eyebrow">YOUR SUBSCRIPTIONS, AT A GLANCE</div><h1>Room for your next idea.</h1><p>Check your limits. Pick an agent. Keep building.</p></div>
+        <div class="refresh-group"><button id="refresh" type="button"><span aria-hidden="true">↻</span> &nbsp; Refresh usage</button><span id="refresh-note">Connecting to your workspace…</span></div>
+      </section>
+      <div id="connection-error" class="error-message connection-error" role="status" hidden></div>
+      <section id="dashboard" aria-label="Subscription usage">
+        <div class="section-heading"><h2>Usage overview <span id="account-count">Connecting</span></h2><span class="muted">% of allowance used</span></div>
+        <div id="cards" class="cards" aria-busy="true"></div>
+        <div class="legend"><span><i class="green"></i> Under 70%</span><span><i class="amber"></i> 70–89%</span><span><i class="red"></i> 90% or more</span><span class="legend-note">Each provider has its own limits.</span></div>
+        <aside class="quiet-note"><span class="note-icon" aria-hidden="true">⌁</span><div><strong>Your PC keeps everything together.</strong><p id="local-description">Usage comes from your local CLI logins. Your credentials stay off the dashboard.</p></div><span class="note-tag">LOCAL BY DESIGN</span></aside>
+      </section>
+      <section id="setup" hidden aria-labelledby="setup-title">
+        <div class="setup-panel"><div class="eyebrow">A LITTLE SETUP. THEN YOU’RE IN.</div><h2 id="setup-title">Accounts on this PC</h2><p id="setup-description">Use the CLI logins you already have. Choose what appears on your dashboard.</p><div id="setup-accounts"></div><p id="setup-error" class="error-message" role="alert" hidden></p><div class="setup-bottom"><span id="discovery-note">Credentials are read only by this PC.</span><div class="setup-actions"><button id="rescan" type="button">Rescan logins</button><button id="enable-all" class="primary" type="button">Enable found accounts →</button></div></div></div>
+      </section>
+    </main>
+    <footer><span>Claude <span class="separator">/</span> ChatGPT <span class="separator">/</span> Grok</span><span>One local view. More space to make things.</span></footer>
+  </div>
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <form id="settings-form">
+      <div class="dialog-heading"><div><div class="eyebrow">MAKE IT YOURS</div><h2 id="settings-title">Workspace settings</h2></div><button id="close-settings" type="button" aria-label="Close settings">✕</button></div>
+      <p>Choose the local CLI logins to show on your dashboard.</p>
+      <div class="account-actions"><button id="settings-enable-all" type="button">Select found accounts</button><button id="settings-rescan" type="button">Rescan</button></div>
+      <div id="settings-accounts"></div>
+      <label class="setting-row" for="interval"><span><strong>Refresh interval</strong><small>One server schedule is shared across all viewers.</small></span><select id="interval"><option value="120000">2 minutes</option><option value="180000" selected>3 minutes</option><option value="300000">5 minutes</option></select></label>
+      <label class="setting-row" for="lan"><span><strong>Allow phones on this Wi-Fi</strong><small>Anyone who can reach this PC can view usage and change these settings. A server restart applies this change.</small></span><input id="lan" type="checkbox"></label>
+      <p id="lan-note" class="lan-note"></p>
+      <div id="lan-share" class="lan-share" hidden><img id="lan-qr" width="132" height="132" alt="QR code to open this workspace on your phone"><div><strong>Open on your phone</strong><a id="lan-url" target="_blank" rel="noopener noreferrer"></a><p>Keep this PC running on the same Wi-Fi. You can add a browser shortcut; offline and app installation support varies over local HTTP.</p></div></div>
+      <p id="settings-error" class="error-message" role="alert" hidden></p>
+      <button id="save" class="primary" type="submit">Save settings</button>
+    </form>
+  </dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <noscript><p class="noscript">Enable JavaScript to discover your CLI logins and show usage.</p></noscript>
+</body>
+</html>

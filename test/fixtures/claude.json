@@ -1,0 +1,8 @@
+{
+  "five_hour": { "utilization": 37.5, "resets_at": "2026-09-08T19:00:00Z" },
+  "seven_day": { "utilization": 72, "resets_at": "2026-09-14T12:00:00Z" },
+  "seven_day_sonnet": { "utilization": 0, "resets_at": "2026-09-14T12:00:00Z" },
+  "seven_day_fable": { "utilization": 102.5, "resets_at": "2026-09-14T12:00:00Z" },
+  "extra_usage": { "is_enabled": true, "used_credits": 1234, "monthly_limit": 5000 },
+  "unknown": { "ignored": true }
+}
