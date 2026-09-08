@@ -13,18 +13,18 @@ Install Node.js **20 or newer** (`.nvmrc` selects Node 24 for development), then
 
 ```sh
 npm ci
-npm start
+npm run start:gpt6
 ```
 
-Open [http://127.0.0.1:3140](http://127.0.0.1:3140). Keep the terminal running while using the dashboard.
+Open [http://127.0.0.1:3166](http://127.0.0.1:3166). This comparison launch uses its own port and the
+header identifies this build as **GPT-6**. Keep the terminal running while using the dashboard.
 There is no build step, database, cloud service, or API-key setup. The only dependency generates phone QR
 codes locally; the dashboard has no third-party browser requests.
 
-If another comparison build already uses port 3140, choose a different port in PowerShell:
+`npm start` retains the standard port 3140. To choose another port:
 
-```powershell
-$env:PORT = '3146'
-npm start
+```sh
+node server.js --port 3167
 ```
 
 ## Accounts and settings
@@ -50,6 +50,12 @@ On a failed update, the last successful meters remain visible with a stale label
 timestamp. A passed reset time does not reset the displayed usage to zero. ChatGPT's card displays
 **Codex coding usage**, which does not represent every ChatGPT message limit.
 
+Every card has expandable **Account details**, including exact local reset dates. Claude shows
+usage-credit status and spending, with spending limits and balances when supplied. Grok shows purchased
+Extra Usage Credits and reported product usage; legacy on-demand accounts can also show spending and
+their cap. ChatGPT retains its model limits, credit balance, and banked resets. Missing values stay omitted,
+while a reported zero remains visible.
+
 ## Phone view
 
 Enable **Allow phones on this Wi-Fi**, save, then restart the server. Reopen Settings for the local
@@ -73,9 +79,8 @@ cannot be safely acquired with Node core; if its session needs renewal, the dash
 `grok login`. No token is sent to the browser or included in provider error messages.
 
 Only config and rotated credential files persist. Temporary atomic-write files and official Claude
-locks are cleaned up. This app never creates credential backups. Avoid running multiple usage-tracker
-servers against the same accounts: their caches are independent, and CLI refresh coordination is
-provider-dependent.
+locks are cleaned up. This app never creates credential backups. Comparison builds can run on separate
+ports; each build has its own refresh cache, and CLI refresh coordination is provider-dependent.
 
 ## Verify
 

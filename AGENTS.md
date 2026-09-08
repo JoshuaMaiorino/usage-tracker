@@ -83,6 +83,7 @@ state can change underneath you mid-task (a `master` → `main` rename already h
 ```bash
 npm ci       # one dependency: local QR code generation
 npm start    # node server.js, default 127.0.0.1:3140
+npm run start:gpt6 # this comparison build at 127.0.0.1:3166; header identifies GPT-6
 npm test     # Node's built-in test runner; synthetic providers and temporary credential files
 npm run check
 ```

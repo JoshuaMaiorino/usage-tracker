@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { request as httpRequest } from 'node:http';
-import { createApplication } from '../server.js';
+import { createApplication, startupPort } from '../server.js';
 import { ConfigStore } from '../lib/config.js';
 
 const accounts = [
@@ -12,6 +12,16 @@ const accounts = [
   { id: 'chatgpt', name: 'ChatGPT', found: true, status: 'found', plan: null, loginCommand: 'codex login' },
   { id: 'grok', name: 'Grok', found: false, status: 'missing', plan: null, loginCommand: 'grok login' },
 ];
+
+test('comparison launch selects its own port ahead of a shared PORT environment value', () => {
+  assert.equal(startupPort([], {}), 3140);
+  assert.equal(startupPort([], { PORT: '3146' }), 3146);
+  assert.equal(startupPort(['--port', '3166'], { PORT: '3140' }), 3166);
+  assert.equal(startupPort(['--port=3166'], {}), 3166);
+  for (const args of [['--port'], ['--port', '0'], ['--port', '65536'], ['--port', 'invalid'], ['--unknown']]) {
+    assert.throws(() => startupPort(args, {}), /PORT/);
+  }
+});
 
 async function setup(t, options = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'usage-tracker-server-'));

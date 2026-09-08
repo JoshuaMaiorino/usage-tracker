@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Usage Tracker",
-  "short_name": "Usage",
+  "name": "Usage Tracker · GPT-6",
+  "short_name": "Usage GPT-6",
   "description": "Your local Claude, Codex, and Grok subscription meters.",
   "start_url": "/",
   "scope": "/",

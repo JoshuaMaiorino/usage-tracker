@@ -3,6 +3,11 @@ const catalog = [
   { id: 'chatgpt', name: 'ChatGPT', icon: '◎', loginCommand: 'codex login' },
   { id: 'grok', name: 'Grok', icon: '𝕏', loginCommand: 'grok login' },
 ];
+const allowanceNotes = {
+  claude: 'Claude and Claude Code share these allowances. Session and weekly limits are measured separately.',
+  chatgpt: 'These are Codex coding limits. They do not represent all ChatGPT conversations.',
+  grok: 'Grok reports a shared subscription pool across Chat, Imagine, Voice, and Build.',
+};
 const $ = id => document.getElementById(id);
 const state = { accounts: null, settings: null, csrfToken: '', usage: null, meta: null, connected: false, busy: false };
 let toastTimer;
@@ -117,6 +122,22 @@ function meter(window, name) {
   return `<div class="meter"><div class="meter-title"><span>${escape(label)}</span><strong>${escape(display)}<span>%</span></strong></div><div class="track" role="meter" aria-label="${escape(name)}: ${escape(label)} used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, value)}" aria-valuetext="${escape(display)} percent used"><div class="fill ${color}" style="width:${Math.min(100, value)}%"></div></div><small${reset === null ? '' : ` data-reset="${reset}" title="${escape(absolute(reset))}"`}>${reset === null ? 'Reset time unavailable' : reset > Date.now() ? `Resets in ${duration(reset - Date.now())}` : 'Reset time passed; awaiting update'}</small></div>`;
 }
 
+function accountDetails(info, primary, scoped, extras, previousOpen) {
+  const detailsId = `${info.id}-details`;
+  const resetRows = primary.flatMap(window => {
+    const reset = timestamp(window.resetsAt);
+    if (reset === null) return [];
+    const label = window.id === 'session' ? 'Session resets' : window.id === 'weekly' ? 'Weekly resets' : `${window.label || window.id || 'Allowance'} resets`;
+    const date = new Intl.DateTimeFormat(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', timeZoneName: 'short',
+    }).format(reset);
+    return [`<div class="extra-row"><dt>${escape(label)}</dt><dd><time datetime="${new Date(reset).toISOString()}">${escape(date)}</time></dd></div>`];
+  });
+  const extraRows = extras.map(extra => `<div class="extra-row"><dt>${escape(extra.label)}</dt><dd>${escape(extra.value)}</dd></div>`);
+  const rows = [...extraRows, ...resetRows];
+  return `<details class="details" id="${detailsId}"${previousOpen.has(detailsId) ? ' open' : ''}><summary>${scoped.length ? 'Model limits & account details' : 'Account details'}</summary><p>${escape(allowanceNotes[info.id])}</p>${scoped.map(window => meter(window, info.name)).join('')}${rows.length ? `<dl class="extras">${rows.join('')}</dl>` : ''}</details>`;
+}
+
 function errorTitle(code = '') {
   if (/auth|expired|login|refresh_unsupported/i.test(code)) return 'Reconnect your account';
   if (/credential|missing|not_found|keychain|unsupported_store/i.test(code)) return 'A local login is needed';
@@ -153,14 +174,7 @@ function renderCard(info, previousOpen) {
     if (!primary.length) { primary = scoped.splice(0, scoped.length); }
     content += primary.map(window => meter(window, info.name)).join('');
     const extras = Array.isArray(provider.extras) ? provider.extras.filter(extra => extra && typeof extra.label === 'string' && ['string', 'number', 'boolean'].includes(typeof extra.value)) : [];
-    if (scoped.length || extras.length || info.id === 'chatgpt') {
-      const detailsId = `${info.id}-details`;
-      content += `<details class="details" id="${detailsId}"${previousOpen.has(detailsId) ? ' open' : ''}><summary>${scoped.length ? 'Model limits & account details' : 'About this allowance'}</summary>`;
-      if (info.id === 'chatgpt') content += '<p>These are Codex coding limits. They do not represent all ChatGPT conversations.</p>';
-      content += scoped.map(window => meter(window, info.name)).join('');
-      if (extras.length) content += `<dl class="extras">${extras.map(extra => `<div class="extra-row"><dt>${escape(extra.label)}</dt><dd>${escape(extra.value)}</dd></div>`).join('')}</dl>`;
-      content += '</details>';
-    }
+    content += accountDetails(info, primary, scoped, extras, previousOpen);
   } else if (loading && !missing) {
     content += '<div class="loading-state"><span class="loading-indicator" aria-hidden="true"></span><span>Waiting for the first usage reading…</span><small>No allowance estimate yet.</small></div>';
   } else {

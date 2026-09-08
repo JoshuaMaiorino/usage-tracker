@@ -36,6 +36,14 @@ This protocol may need updating when Claude Code changes it.
 File-based Claude credentials are supported. A missing file on macOS explicitly
 mentions that the login may instead be in Keychain; this app does not extract it.
 
+Account details include an explicit usage-credit enabled/disabled state and spent amount, even when
+the returned spending is zero. The observed `spend.used` structure supplies `amount_minor`, `currency`,
+and `exponent`; all three must validate before formatting. Optional `spend.limit` and `spend.balance`
+are shown only if they match that complete money structure. Unknown shapes and nulls are omitted.
+Legacy `extra_usage` supplies currency/minor-unit spending and a monthly cap; the installed CLI treats
+an explicit null monthly cap as unlimited only when credits are enabled. A missing cap is unknown.
+These correspond to the account controls in [Claude's usage-credit documentation](https://support.claude.com/en/articles/12429409-manage-usage-credits-for-paid-claude-plans).
+
 ## ChatGPT / Codex
 
 The [official Codex authentication implementation](https://github.com/openai/codex/blob/main/codex-rs/login/src/auth/manager.rs)
@@ -79,6 +87,20 @@ lookup returned SuperGrok. The shared-pool interpretation follows the design; it
 was not compared against the separate grok.com settings page. A recognized returned
 percentage or same-unit used/cap ratio is displayed; missing fields produce an
 unsupported-format error rather than an invented meter.
+
+Expanded details now read the actual `config.prepaidBalance` cent wrapper, including protobuf `{}` zero
+and signed accounting balances, following the [official billing definitions](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-shell/src/extensions/billing.rs)
+and [CLI money formatting](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/src/views/credit_bar.rs).
+The display calls this balance **Extra Usage Credits**. On-demand spending/caps are shown for legacy
+accounts and omitted when `isUnifiedBillingUser` explicitly identifies the shared subscription pool.
+Availability flags from `/settings` are not interpreted as enabled spending settings.
+
+The live `productUsage` array contains named products and `usagePercent` values. Recognized Chat,
+Imagine, Voice, and Build names are allowlisted; values are shown directly as percentages of total
+allowance, matching the [official consumer usage screenshot](https://docs.x.ai/assets/docs/billing/consumer-usage.png).
+This mapping is supported by the live product values summing to the total usage reading. The older
+object-form breakdown remains supported. No reset credits, purchased-credit expiry, or unreported
+products are inferred.
 
 ## Credential and request handling
 

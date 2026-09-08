@@ -11,6 +11,17 @@ import { createProviders } from './lib/providers/index.js';
 import { UsageCache } from './lib/cache.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
+
+export function startupPort(args = process.argv.slice(2), environment = process.env) {
+  let value = environment.PORT ?? '3140';
+  if (args.length === 2 && args[0] === '--port') value = args[1];
+  else if (args.length === 1 && args[0].startsWith('--port=')) value = args[0].slice(7);
+  else if (args.length) throw new Error('PORT usage: node server.js [--port 3166]');
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be an integer between 1 and 65535.');
+  return port;
+}
+
 const STATIC_FILES = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
@@ -200,8 +211,7 @@ export async function createApplication({
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   let app;
   try {
-    const port = process.env.PORT === undefined ? 3140 : Number(process.env.PORT);
-    if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be an integer between 1 and 65535.');
+    const port = startupPort();
     app = await createApplication({ port });
     const info = await app.listen();
     console.log(`Usage Tracker running at ${info.localUrl}`);
