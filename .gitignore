@@ -10,3 +10,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Personal agent overrides (Grok/Claude discover these; keep them unshared)
+CLAUDE.local.md
+.grok/*.local.toml
