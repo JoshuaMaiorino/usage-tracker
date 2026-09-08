@@ -248,3 +248,85 @@ Live provider calls can fail if an endpoint moved. Treat a well-formed error car
 4. **3-minute poll + last-good cache** — Claude rate-limits the usage endpoint.
 5. **Windows identified by duration/name, not array position** — provider payloads shuffle.
 6. **v1 is three providers only** — Claude, GPT, Grok, in that order.
+
+## Implementation notes (review pass)
+
+Added after a read-through of the plan above. These are gaps and hazards, not changes of direction — the
+approach in this document still stands.
+
+### Writing to CLI credential files is the riskiest thing this app does
+
+The plan correctly allows writing rotated tokens back into `.credentials.json` / `auth.json`. That deserves
+more care than one line, because a bug here logs the user out of a tool they depend on.
+
+- **Concurrency.** The real CLI can be running while we refresh. OAuth refresh tokens usually rotate and are
+  single-use, so two concurrent refreshes can leave the loser holding a dead token. Grok already ships
+  `~/.grok/auth.json.lock`; honor it. Claude and Codex have no lockfile next to their creds, so use our own
+  advisory lock and re-read the file immediately before writing — if the token on disk changed while we were
+  in flight, prefer the CLI's newer value and drop ours.
+- **Atomic writes only.** Write a temp file in the same directory, then rename over the original. A partial
+  write to `.credentials.json` from a crash mid-write is a logout.
+- **Back up before the first write** to each file, and never widen file permissions.
+- **Refresh with margin** — treat a token as expired at `expiresAt - 5min`, not at `expiresAt`, so a refresh
+  is not racing its own expiry.
+- Prefer not refreshing at all when a cached snapshot is still fresh enough to render.
+
+### Portability of the credential paths
+
+`~/.claude/.credentials.json` is the Windows/Linux location. Claude Code on macOS may keep the login in the
+system Keychain rather than a file — verify before assuming the file exists there, and treat "credential
+store is not a file on this platform" as its own honest empty state rather than "not logged in".
+
+### LAN bind needs two guards, not just a toggle
+
+Binding `0.0.0.0` with no auth means anyone on the Wi-Fi can read plan and usage data, and — worse — can hit
+`POST /api/usage/refresh` repeatedly and burn the rate limit that the whole design is built around.
+
+- Rate-limit `/api/usage/refresh` server-side regardless of caller.
+- **Validate the `Host` header** on every request even in localhost mode. A web page in the user's browser can
+  reach `127.0.0.1:3140` via DNS rebinding; checking `Host` against an expected allowlist blocks that. Send no
+  permissive CORS headers.
+
+### One scheduler, many viewers
+
+Polling must be server-side and singular. If the PC browser and a phone are both open, per-client fetching
+doubles the request rate against exactly the endpoint that rate-limits hardest. Clients read cache; a single
+timer refreshes it.
+
+### PWA over LAN http is limited
+
+Service workers require a secure context. `localhost` qualifies; `http://192.168.x.x` does not. So on the
+phone, offline/installable PWA behavior will not fully work over plain LAN http — a manifest plus Add to Home
+Screen still gives an app-like shortcut, but do not design around a service worker cache for the phone case.
+
+### Error taxonomy worth distinguishing
+
+The plan says "honest error states"; these four have genuinely different user actions:
+
+| Condition | Card should say |
+|---|---|
+| No credential file | "not logged in on this PC" + the login command |
+| 401 after refresh attempt | "token expired — run `claude auth login`" |
+| 429 | "rate limited — backing off", keep showing last-good with its timestamp |
+| 200 but unparseable | "usage format changed — parser needs updating" |
+
+That last one matters most. These endpoints are undocumented, so silent schema drift is the most likely
+long-term failure, and it should be visibly distinct from a network problem rather than rendering as a
+generic error.
+
+### Testing without live calls
+
+Live provider calls are rate-limited, need real logins, and cannot run in CI. Capture **redacted fixture
+payloads** for each provider and unit-test `normalize.js` against them. That is what makes "identify windows
+by duration, not position" verifiable rather than aspirational, and it gives a place to add a regression case
+each time a payload shape changes in the wild.
+
+### Smaller points
+
+- Node version is stated three ways: `docs/design.md` says 20+, `package.json` says `>=20`, `.nvmrc` pins 24.
+  Harmless, but pick one story.
+- Countdowns should render from an absolute reset timestamp in the client's own timezone, not from a
+  server-computed "time remaining" that goes stale in a background tab.
+- `data/` is gitignored and will not exist on first run — create it before first write.
+- Handle "port 3140 already in use" explicitly; a second instance is a likely user error.
+- Add a redaction helper and route all provider logging through it, so a token cannot reach a log by accident.
