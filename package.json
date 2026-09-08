@@ -1,0 +1,19 @@
+{
+  "name": "usage-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local dashboard for Claude, ChatGPT, and Grok subscription usage meters.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "start:combined": "node server.js --port 3170",
+    "test": "node --test",
+    "check": "node --check server.js && node --check public/app.js"
+  },
+  "dependencies": {
+    "qrcode-generator": "2.0.4"
+  }
+}

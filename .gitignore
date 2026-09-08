@@ -1,0 +1,27 @@
+node_modules/
+data/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+*.local
+.idea/
+.vscode/
+*.swp
+
+# Personal agent overrides (Grok/Claude discover these; keep them unshared)
+CLAUDE.local.md
+.grok/*.local.toml
+
+# Local CLI stores and key material must never enter the public repository.
+/.claude/
+/.codex/
+/.grok/
+auth.json
+.credentials.json
+*.pem
+*.key
+*.p12
+*.pfx

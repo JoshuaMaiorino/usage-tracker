@@ -1,0 +1,13 @@
+{
+  "config": {
+    "creditUsagePercent": 26.75,
+    "currentPeriod": { "end": "2026-09-14T12:00:00Z" },
+    "productUsage": {
+      "chat": { "creditUsagePercent": 12 },
+      "imagine": { "creditUsagePercent": 7 },
+      "voice": { "creditUsagePercent": 0 },
+      "build": { "creditUsagePercent": 7.75 }
+    }
+  },
+  "prepaidCredits": 100
+}
