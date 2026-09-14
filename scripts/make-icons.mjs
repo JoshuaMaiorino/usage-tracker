@@ -70,9 +70,31 @@ function png(size) {
   ]);
 }
 
+function icoFromPng(pngBuffer) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(1, 4);
+  const entry = Buffer.alloc(16);
+  entry[0] = 0;
+  entry[1] = 0;
+  entry.writeUInt16LE(1, 4);
+  entry.writeUInt16LE(32, 6);
+  entry.writeUInt32LE(pngBuffer.length, 8);
+  entry.writeUInt32LE(22, 12);
+  return Buffer.concat([header, entry, pngBuffer]);
+}
+
 const out = new URL('../public/icons/', import.meta.url);
 mkdirSync(out, { recursive: true });
 for (const size of [180, 192, 512]) {
   writeFileSync(new URL(`icon-${size}.png`, out), png(size));
   console.log(`Generated public/icons/icon-${size}.png`);
 }
+
+const desktop = new URL('../src-tauri/icons/', import.meta.url);
+mkdirSync(desktop, { recursive: true });
+writeFileSync(new URL('32x32.png', desktop), png(32));
+writeFileSync(new URL('128x128.png', desktop), png(128));
+writeFileSync(new URL('128x128@2x.png', desktop), png(256));
+writeFileSync(new URL('icon.ico', desktop), icoFromPng(png(256)));
+console.log('Generated src-tauri/icons');

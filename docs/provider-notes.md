@@ -3,13 +3,13 @@
 Implementation review: September 8, 2026. These adapters implement the undocumented
 endpoints in [the design](design.md). They have been tested with synthetic, redacted
 fixtures and injected HTTP responses. A separate live smoke check on September 8,
-2026 returned successful readings from all three providers. Personal account readings
-and plan details are omitted from this public record.
+2026 returned successful readings from all three local accounts: two Claude windows,
+three Codex windows (including a weekly-only general allowance), and one Grok pool.
 Real tokens and response bodies were not recorded in fixtures or logs. Renewal and
 concurrent-write behavior were verified with temporary synthetic credential files.
 
 A later combined-build smoke check on the same date returned successful readings from
-all three providers, including support for canonical scoped restrictions. The regression
+all three providers and now included Claude's Fable scoped restriction. The regression
 fixture for that shape is synthetic; the live response was not copied into the repository.
 
 ## Observed CLI versions
@@ -97,7 +97,7 @@ settings. On expiry, open Grok to let the official CLI renew the login, or run
 `grok login`. A 401 causes one reread and a retry only if the CLI changed the token.
 
 The live billing response supplied a recognized pool percentage and the settings
-lookup returned a subscription label. The shared-pool interpretation follows the design; it
+lookup returned SuperGrok. The shared-pool interpretation follows the design; it
 was not compared against the separate grok.com settings page. A recognized returned
 percentage or same-unit used/cap ratio is displayed; missing fields produce an
 unsupported-format error rather than an invented meter.

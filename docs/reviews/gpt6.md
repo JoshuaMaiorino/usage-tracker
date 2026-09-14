@@ -5,13 +5,11 @@ Claude-Opus-5 `41016e3`, and grok `f5e0592`. Recorded from the conversation for
 the combined build. Reviewers inspected source, opened each running dashboard,
 ran the alternatives' fixture tests, and compared parsers with identical synthetic
 or already committed redacted fixtures. No code changes were made during the review.
-This public edition retains the review's attribution and technical conclusions while
-omitting personal account readings. Exhausted-model examples describe synthetic fixtures.
 
 ## What the other builds did better
 
 - Both alternatives understand Claude's canonical `limits[]` response and show
-  named model allowances, including exhausted-model fixtures. GPT-6 omitted them while preserving the headline
+  the exhausted Fable allowance. GPT-6 omitted it while preserving the two headline
   meters. This was the most consequential finding.
 - Grok automatically expands model limits at 90% usage and uses an adaptive card
   grid. Both improve what is visible without extra interaction.

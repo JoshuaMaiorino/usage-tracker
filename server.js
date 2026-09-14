@@ -22,12 +22,22 @@ export function startupPort(args = process.argv.slice(2), environment = process.
   return port;
 }
 
+export function defaultConfigPath(root = ROOT, environment = process.env) {
+  const dir = environment.USAGE_TRACKER_DATA_DIR;
+  if (typeof dir === 'string' && dir.trim()) return join(dir.trim(), 'config.json');
+  return join(root, 'data', 'config.json');
+}
+
 const STATIC_FILES = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
   ['/settings', ['index.html', 'text/html; charset=utf-8']],
+  ['/compact', ['compact.html', 'text/html; charset=utf-8']],
+  ['/compact.html', ['compact.html', 'text/html; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
+  ['/compact.js', ['compact.js', 'text/javascript; charset=utf-8']],
+  ['/usage-view.js', ['usage-view.js', 'text/javascript; charset=utf-8']],
   ['/disclosure-state.js', ['disclosure-state.js', 'text/javascript; charset=utf-8']],
   ['/settings-state.js', ['settings-state.js', 'text/javascript; charset=utf-8']],
   ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json']],
@@ -74,7 +84,7 @@ async function readJson(request) {
 
 export async function createApplication({
   homeDir = homedir(),
-  configPath = join(ROOT, 'data', 'config.json'),
+  configPath = defaultConfigPath(),
   port = 3140,
   providers,
   discovery = discoverAccounts,

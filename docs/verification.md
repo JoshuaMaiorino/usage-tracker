@@ -3,7 +3,6 @@
 Verified September 8, 2026 on Windows with Node 24.15.0. The combined build uses
 GPT-6's application foundation and integrates the reviewed Claude and Grok improvements.
 See [combined.md](combined.md) for the source commits, reviews and integration choices.
-This public record omits personal account readings and local session details.
 
 ## Automated checks
 
@@ -30,14 +29,14 @@ This public record omits personal account readings and local session details.
 - The combined server runs with `npm run start:combined` at
   `http://127.0.0.1:3170`. The header, browser title and manifest identify **Combined**;
   the footer credits GPT-6, Claude and Grok.
-- All three live providers returned successful readings. Scoped restrictions, reported
-  plan labels and shared allowances were retained. Exact account readings are not
-  included in this public record; exhausted-limit behavior is covered by the synthetic
-  checks described below.
+- All three live providers returned successful readings. Claude's Fable restriction
+  appeared at 100% and opened automatically. ChatGPT retained its two scoped model
+  windows and correctly identified Pro Lite/Codex; Grok retained its shared pool.
 - Desktop (1440px), mobile (390px) and narrow mobile (320px) layouts were inspected
   in a browser. No horizontal overflow or browser errors were detected. Expanded
   model/account sections and the light-theme settings dialog fit the narrow viewport.
-- The LAN QR loaded successfully, and saved settings persisted. Physical phone reachability/installation
+- The LAN QR loaded successfully. The combined worktree retained the user's saved
+  refresh interval and opt-in LAN setting. Physical phone reachability/installation
   was not tested; local HTTP still does not guarantee full PWA installation.
 - Browser interaction verification uses a separate fixture application with injected
   providers/discovery and temporary config, keeping test controls out of the real app.
@@ -49,6 +48,7 @@ This public record omits personal account readings and local session details.
 - The synthetic two-provider desktop layout fills two equal columns. Both mobile
   widths and the 320px settings dialog fit without horizontal scrolling in both themes.
 
-The original local comparison branches remain unchanged. Multiple builds share the
-official CLI credential files when run; existing renewal and concurrency limitations remain documented in
+The original comparison branches remain unchanged. Only the combined server was
+restarted after the PC crash. All three builds still share the official CLI credential
+files when run; existing renewal and concurrency limitations remain documented in
 [provider-notes.md](provider-notes.md).

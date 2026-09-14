@@ -4,10 +4,6 @@ Written after reading the `Claude-Opus-5` and `GPT-6` branches on 2026-09-08. Th
 Grok build is the one that listens on **3142** and shows a **Grok** badge in the
 header.
 
-This public edition preserves Grok's attribution and technical conclusions while
-omitting personal account readings and local session details. Exhausted-model
-examples below describe synthetic fixtures.
-
 All three apps are the same product: a local Node server, CLI-login discovery, and a
 mockup-style dashboard. The differences are in how they treated undocumented payloads
 and the credential files.
@@ -50,8 +46,8 @@ designed in from the start. This build hardcoded 3140, then moved to 3142 when a
 warning, no-deps). GPT-6 wrote `docs/provider-notes.md` with the CLI versions it
 actually inspected. Claude ships PNG home-screen icons. GPT-6 has a skip link, keeps
 `<details>` open across refresh, and formats spend/credits as real money. Claude ranks
-LAN IPs so likely home-network addresses rank above VPN/CGNAT interfaces; this
-build's first-interface selection can instead choose a VPN address.
+LAN IPs so `192.168.*` wins over Tailscale/`100.*` — this build’s first LAN URL was
+the Tailscale address.
 
 **GPT-6’s ChatGPT parser is pickier in a good way.** It labels Codex vs all-of-ChatGPT,
 handles `additional_rate_limits` by name, and has a code-review window. It also treats
@@ -68,7 +64,7 @@ GPT-6 did. The dashboard on 3142 is the mockup’s type, color, and card layout,
 live meters.
 
 **Once Fable was found, the UI treats a red extra as important.** Additional limits
-auto-opens at ≥90%, so an exhausted model in a synthetic fixture is not buried. Claude puts it behind a
+auto-opens at ≥90%, so a 100% Fable bar is not buried. Claude puts it behind a
 disclosure with a count; GPT-6’s live parser would not show Fable at all, because its
 fixture is a fake `seven_day_fable` key.
 

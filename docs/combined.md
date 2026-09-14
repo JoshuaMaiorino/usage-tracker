@@ -1,26 +1,18 @@
-# Combined edition integration
+# Combined build integration
 
-The **Combined edition** is released on `main` as a fresh public snapshot of the
-local `combined` build. That build started from GPT-6 `92e6787` and integrated
-selected behavior from Claude-Opus-5 `84792e7` and grok `c71a228`; the resulting
-local snapshot was `dd656a1`. These IDs record development provenance, not commits
-included in this public repository's fresh history. The original local comparison
-branches remain intact.
-
+The `combined` branch starts from GPT-6 `92e6787` and integrates selected behavior
+from Claude-Opus-5 `84792e7` and grok `c71a228`. Each original branch remains intact.
 The dashboard identifies itself as **Combined**, credits all three contributors,
 and has a dedicated launch command: `npm run start:combined` (port 3170).
 
 ## Review inputs
 
-- [Claude's review](reviews/claude.md), adapted from `84792e7`.
-- [Grok's review](reviews/grok.md), adapted from `c71a228`.
-- [GPT-6's review](reviews/gpt6.md), adapted from the development conversation.
+- [Claude's original review](reviews/claude.md), preserved from `84792e7`.
+- [Grok's original review](reviews/grok.md), preserved from `c71a228`.
+- [GPT-6's review](reviews/gpt6.md), recorded from the conversation.
 
 These are historical assessments by their respective authors, including subjective
-preferences and observations from different moments. The reviews were sanitized for
-public distribution: personal account readings and local session details were removed,
-while attribution and technical conclusions were retained. They are not verbatim copies.
-The integration decisions below
+preferences and observations from different moments. The integration decisions below
 use the actual code and regression fixtures. For example, the zero-dependency claims
 are factual, but they do not require replacing a tested QR library with another encoder.
 
@@ -45,7 +37,7 @@ GPT-6 supplies the native HTTP application factory, strict request and static-fi
 boundaries, two-minute provider gate, full Retry-After handling, independently timed
 provider retries, and in-memory last-good cache. Its credential renewal path retains
 the verified Claude locks, heartbeat, concurrent-change checks, permission preservation
-and atomic writes. The Combined edition does not adopt the other builds' Grok token
+and atomic writes. The combined branch does not adopt the other builds' Grok token
 rotation or copy-over-live-file fallbacks.
 
 The richer Claude/Grok currency and credit details, Grok product usage arrays and

@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { request as httpRequest } from 'node:http';
-import { createApplication, startupPort, localAddresses } from '../server.js';
+import { createApplication, startupPort, defaultConfigPath, localAddresses } from '../server.js';
 import { ConfigStore } from '../lib/config.js';
 
 const accounts = [
@@ -22,6 +22,12 @@ test('comparison launch selects its own port ahead of a shared PORT environment 
   for (const args of [['--port'], ['--port', '0'], ['--port', '65536'], ['--port', 'invalid'], ['--unknown']]) {
     assert.throws(() => startupPort(args, {}), /PORT/);
   }
+});
+
+test('desktop data directory env keeps config out of a packaged install folder', () => {
+  assert.equal(defaultConfigPath('/app', {}), join('/app', 'data', 'config.json'));
+  assert.equal(defaultConfigPath('/app', { USAGE_TRACKER_DATA_DIR: '  ' }), join('/app', 'data', 'config.json'));
+  assert.equal(defaultConfigPath('/app', { USAGE_TRACKER_DATA_DIR: '/home/me/.config/usage-tracker' }), join('/home/me/.config/usage-tracker', 'config.json'));
 });
 
 async function setup(t, options = {}) {
@@ -238,9 +244,14 @@ test('combined shell and phone icons are served from the static allowlist', asyn
     assert.equal(png.readUInt32BE(16), size);
     assert.equal(png.readUInt32BE(20), size);
   }
-  for (const path of ['/disclosure-state.js', '/settings-state.js']) {
+  for (const path of ['/disclosure-state.js', '/settings-state.js', '/compact.js', '/usage-view.js']) {
     const module = await fetch(`${ctx.base}${path}`);
     assert.equal(module.status, 200);
     assert.match(module.headers.get('content-type'), /javascript/);
   }
+  const compact = await fetch(`${ctx.base}/compact`);
+  assert.equal(compact.status, 200);
+  assert.match(compact.headers.get('content-type'), /text\/html/);
+  assert.match(await compact.text(), /compact-bar/);
+  assert.equal((await fetch(`${ctx.base}/compact.html`)).status, 200);
 });
