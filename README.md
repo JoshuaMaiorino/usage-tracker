@@ -35,26 +35,51 @@ codes locally; the dashboard has no third-party browser requests.
 node server.js --port 3167
 ```
 
+For a tray app instead of a browser tab, see [Desktop app](#desktop-app).
+
 ## Desktop app
 
-A Tauri tray shell wraps the same Node engine for Windows and Linux. It stays in the system tray, can pin the compact strip to the top of the screen, and opens the full dashboard on demand. It uses Node.js already on this PC (the Claude / Codex / Grok CLIs need it too) and writes desktop settings to the OS app-config folder instead of the install directory.
+The desktop shell is a Tauri tray app around the same Node engine. It runs on Windows and Linux, stays in the system tray, and can pin the compact strip to the top of the screen. It uses Node.js already on this PC (the Claude / Codex / Grok CLIs need it too).
+
+### Launch from source
+
+Install Node.js **20 or newer** and [Rust](https://rustup.rs/) **1.77 or newer**, then:
 
 ```sh
 npm ci
 npm run desktop
 ```
 
+The first compile takes a few minutes. After that you should see a compact usage bar and a tray icon. Leave that terminal open while the app is running; Ctrl+C (or **Quit** in the tray) stops it.
+
+Windows also needs the MSVC C++ tools (Visual Studio Build Tools with the “Desktop development with C++” workload) and WebView2, which Windows 10/11 usually already have.
+
+Linux also needs WebKitGTK and a tray that implements StatusNotifier/AppIndicator, for example:
+
+```sh
+sudo apt install libwebkit2gtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev
+npm ci
+npm run desktop
+```
+
+On GNOME, install an AppIndicator extension if the tray icon does not appear.
+
 Left-click the tray icon to show or hide the compact bar. Right-click for **Open dashboard**, **Refresh usage**, **Pin to top of screen**, **Start with this PC**, and **Quit**. Drag the `⋮⋮` handle to move an unpinned bar.
 
-The desktop shell listens on `127.0.0.1:3142` so it can run beside `npm start` (3140) or `npm run start:combined` (3170). Override with `USAGE_TRACKER_PORT`.
+The desktop engine listens on `127.0.0.1:3142` so it can run beside `npm start` (3140) or `npm run start:combined` (3170). Override with `USAGE_TRACKER_PORT`. Desktop settings are stored in the OS app-config folder, not the install directory.
 
-Installers (NSIS on Windows, AppImage and `.deb` on Linux):
+### Installer
 
 ```sh
 npm run desktop:build
 ```
 
-Rust 1.77+, system WebView (WebView2 on Windows, WebKitGTK on Linux), and Node 20+ are required to build. Linux also needs `libwebkit2gtk-4.1-dev` and an AppIndicator/StatusNotifier tray. The packaged app still launches `node`; it does not bundle a second Chromium.
+That writes:
+
+- Windows: `src-tauri/target/release/bundle/nsis/`
+- Linux: `src-tauri/target/release/bundle/appimage/` and `.../deb/`
+
+Run the installer, then launch **Usage Tracker** from the Start menu or your desktop environment. The packaged app still needs `node` on `PATH`; it does not bundle Chromium or a second Node runtime. Do not ship it as a sandboxed Flatpak/Snap unless the sandbox can read CLI logins under your home directory.
 
 ## Accounts and settings
 
