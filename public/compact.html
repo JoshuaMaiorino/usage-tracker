@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101313">
+  <meta name="description" content="A compact local strip of Claude, Codex, and Grok subscription usage.">
+  <title>Usage Tracker · Compact</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png" sizes="180x180">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/compact.js" type="module"></script>
+</head>
+<body class="compact">
+  <a class="skip-link" href="#chips">Skip to usage</a>
+  <div class="compact-bar">
+    <a class="compact-brand" href="/" title="Open the full dashboard" aria-label="Usage Tracker home">▥</a>
+    <div id="chips" class="compact-chips" aria-live="polite">Connecting…</div>
+    <div class="compact-actions">
+      <span id="compact-note" class="compact-note">Connecting to your workspace…</span>
+      <button id="refresh" class="icon-button" type="button" aria-label="Refresh usage" disabled>↻</button>
+      <button id="theme" class="icon-button" type="button" aria-label="Switch to light theme">◐</button>
+      <a class="toolbar-link compact-full" href="/">Full</a>
+    </div>
+  </div>
+  <noscript><p class="noscript">Enable JavaScript to show compact usage meters.</p></noscript>
+</body>
+</html>

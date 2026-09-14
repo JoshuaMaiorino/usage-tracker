@@ -238,9 +238,14 @@ test('combined shell and phone icons are served from the static allowlist', asyn
     assert.equal(png.readUInt32BE(16), size);
     assert.equal(png.readUInt32BE(20), size);
   }
-  for (const path of ['/disclosure-state.js', '/settings-state.js']) {
+  for (const path of ['/disclosure-state.js', '/settings-state.js', '/compact.js', '/usage-view.js']) {
     const module = await fetch(`${ctx.base}${path}`);
     assert.equal(module.status, 200);
     assert.match(module.headers.get('content-type'), /javascript/);
   }
+  const compact = await fetch(`${ctx.base}/compact`);
+  assert.equal(compact.status, 200);
+  assert.match(compact.headers.get('content-type'), /text\/html/);
+  assert.match(await compact.text(), /compact-bar/);
+  assert.equal((await fetch(`${ctx.base}/compact.html`)).status, 200);
 });

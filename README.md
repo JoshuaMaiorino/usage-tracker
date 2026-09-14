@@ -20,6 +20,9 @@ npm run start:combined
 
 Open [http://127.0.0.1:3170](http://127.0.0.1:3170). This launch uses its own port and the
 header identifies this build as **Combined**. Keep the terminal running while using the dashboard.
+For a one-line strip of the same meters, open [http://127.0.0.1:3170/compact](http://127.0.0.1:3170/compact)
+or choose **Compact** in the header. Resize that window into a thin bar and keep it on top; it uses
+the same local API, colors, and refresh schedule as the dashboard.
 After a PC restart or crash, run the same command again.
 There is no build step, database, cloud service, or API-key setup. The only dependency generates phone QR
 codes locally; the dashboard has no third-party browser requests.
@@ -125,6 +128,7 @@ and the static dashboard. See [the design](docs/design.md) and [agent instructio
 
 | Route | Purpose |
 | --- | --- |
+| `GET /compact` | Compact one-line strip of the same meters |
 | `GET /api/accounts` | Rescan local logins, enable newly discovered accounts once, and return safe metadata, settings and mutation token |
 | `POST /api/accounts` | Enable all or update account, interval, and LAN settings |
 | `GET /api/usage` | Cached normalized snapshots; no outbound requests |

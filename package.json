@@ -11,7 +11,7 @@
     "start": "node server.js",
     "start:combined": "node server.js --port 3170",
     "test": "node --test",
-    "check": "node --check server.js && node --check public/app.js"
+    "check": "node --check server.js && node --check public/app.js && node --check public/compact.js && node --check public/usage-view.js"
   },
   "dependencies": {
     "qrcode-generator": "2.0.4"
