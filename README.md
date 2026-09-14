@@ -33,6 +33,27 @@ codes locally; the dashboard has no third-party browser requests.
 node server.js --port 3167
 ```
 
+## Desktop app
+
+A Tauri tray shell wraps the same Node engine for Windows and Linux. It stays in the system tray, can pin the compact strip to the top of the screen, and opens the full dashboard on demand. It uses Node.js already on this PC (the Claude / Codex / Grok CLIs need it too) and writes desktop settings to the OS app-config folder instead of the install directory.
+
+```sh
+npm ci
+npm run desktop
+```
+
+Left-click the tray icon to show or hide the compact bar. Right-click for **Open dashboard**, **Refresh usage**, **Pin to top of screen**, **Start with this PC**, and **Quit**. Drag the `⋮⋮` handle to move an unpinned bar.
+
+The desktop shell listens on `127.0.0.1:3142` so it can run beside `npm start` (3140) or `npm run start:combined` (3170). Override with `USAGE_TRACKER_PORT`.
+
+Installers (NSIS on Windows, AppImage and `.deb` on Linux):
+
+```sh
+npm run desktop:build
+```
+
+Rust 1.77+, system WebView (WebView2 on Windows, WebKitGTK on Linux), and Node 20+ are required to build. Linux also needs `libwebkit2gtk-4.1-dev` and an AppIndicator/StatusNotifier tray. The packaged app still launches `node`; it does not bundle a second Chromium.
+
 ## Accounts and settings
 
 The first launch enables every supported CLI login found on this PC:

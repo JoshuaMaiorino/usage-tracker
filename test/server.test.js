@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { request as httpRequest } from 'node:http';
-import { createApplication, startupPort, localAddresses } from '../server.js';
+import { createApplication, startupPort, defaultConfigPath, localAddresses } from '../server.js';
 import { ConfigStore } from '../lib/config.js';
 
 const accounts = [
@@ -22,6 +22,12 @@ test('comparison launch selects its own port ahead of a shared PORT environment 
   for (const args of [['--port'], ['--port', '0'], ['--port', '65536'], ['--port', 'invalid'], ['--unknown']]) {
     assert.throws(() => startupPort(args, {}), /PORT/);
   }
+});
+
+test('desktop data directory env keeps config out of a packaged install folder', () => {
+  assert.equal(defaultConfigPath('/app', {}), join('/app', 'data', 'config.json'));
+  assert.equal(defaultConfigPath('/app', { USAGE_TRACKER_DATA_DIR: '  ' }), join('/app', 'data', 'config.json'));
+  assert.equal(defaultConfigPath('/app', { USAGE_TRACKER_DATA_DIR: '/home/me/.config/usage-tracker' }), join('/home/me/.config/usage-tracker', 'config.json'));
 });
 
 async function setup(t, options = {}) {

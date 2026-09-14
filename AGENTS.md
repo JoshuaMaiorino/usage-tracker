@@ -28,6 +28,7 @@ Those endpoints are undocumented and can change without notice; the error-state 
 - No React, no database, no cloud
 - Zero or few dependencies; native `http` unless Express is clearly smaller
 - Dashboard is static HTML/CSS/JS in `public/`
+- Optional Tauri 2 tray shell in `src-tauri/` reuses that dashboard over localhost; do not rewrite providers in Rust
 
 ## Data flow
 
@@ -67,7 +68,7 @@ normalized shape to `public/app.js`.
 ## Out of scope for v1
 
 Console/API spend, cookie paste / browser profile scraping, redeeming Codex reset credits, other vendors
-(Cursor, Copilot, Gemini), Electron/Tauri wrapper, dashboard auth, history charts / SQLite.
+(Cursor, Copilot, Gemini), Electron, dashboard auth, history charts / SQLite.
 
 ## Git
 
@@ -87,6 +88,8 @@ npm start    # node server.js, default 127.0.0.1:3140
 npm run start:combined # combined build at 127.0.0.1:3170; header identifies Combined
 npm test     # Node's built-in test runner; synthetic providers and temporary credential files
 npm run check
+npm run desktop      # Tauri tray + compact overlay; requires Rust and Node
+npm run desktop:build
 ```
 
 No build step or linter is required. Keep the near-zero-dependency posture. Tests must never rename or

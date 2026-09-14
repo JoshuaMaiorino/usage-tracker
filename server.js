@@ -22,6 +22,12 @@ export function startupPort(args = process.argv.slice(2), environment = process.
   return port;
 }
 
+export function defaultConfigPath(root = ROOT, environment = process.env) {
+  const dir = environment.USAGE_TRACKER_DATA_DIR;
+  if (typeof dir === 'string' && dir.trim()) return join(dir.trim(), 'config.json');
+  return join(root, 'data', 'config.json');
+}
+
 const STATIC_FILES = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
@@ -78,7 +84,7 @@ async function readJson(request) {
 
 export async function createApplication({
   homeDir = homedir(),
-  configPath = join(ROOT, 'data', 'config.json'),
+  configPath = defaultConfigPath(),
   port = 3140,
   providers,
   discovery = discoverAccounts,
