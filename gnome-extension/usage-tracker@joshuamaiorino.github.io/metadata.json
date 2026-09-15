@@ -1,0 +1,8 @@
+{
+  "uuid": "usage-tracker@joshuamaiorino.github.io",
+  "name": "Usage Tracker",
+  "description": "Claude, Codex, and Grok subscription meters in the top bar. Reads the local Usage Tracker server; hover or click for details.",
+  "shell-version": ["48", "49", "50"],
+  "settings-schema": "org.gnome.shell.extensions.usage-tracker",
+  "url": "https://github.com/JoshuaMaiorino/usage-tracker"
+}
