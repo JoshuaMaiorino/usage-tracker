@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · Compact bar with session limits and resets</title>
+<style>
+:root{color-scheme:dark;--bg:#101313;--panel:#191d1c;--panel-alt:#202523;--text:#edf0e9;--muted:#a0aaa4;--line:#303833;--accent:#c5eda0;--green:#90ceac;--amber:#e9bc70;--red:#ef8f85;--desk:#07090a}
+body.light{color-scheme:light;--bg:#f4f5f0;--panel:#fff;--panel-alt:#ecefe8;--text:#202b24;--muted:#5b685f;--line:#d6ded3;--accent:#365c29;--green:#287b50;--amber:#99630d;--red:#b93f35;--desk:#c9cfc4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Segoe UI,Arial,sans-serif;font-size:14px;line-height:1.5}
+.page{max-width:1520px;margin:auto;padding:28px 36px 80px}
+h1{font-size:22px;letter-spacing:-.4px;margin:0 0 4px}
+h2{font-size:16px;margin:40px 0 4px;display:flex;align-items:center;gap:10px}
+.tag{font-size:10px;font-weight:650;letter-spacing:.5px;text-transform:uppercase;padding:1px 7px;border-radius:5px;border:1px solid var(--line);color:var(--accent)}
+p,li{color:var(--muted)}
+p{margin:0 0 10px}
+ul{margin:6px 0 14px;padding-left:20px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:16px 0 4px}
+.controls button{font:inherit;font-size:13px;color:var(--text);background:var(--panel-alt);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+.controls button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.controls .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.stage{background:var(--desk);border-radius:10px;padding:18px;overflow-x:auto;display:flex;flex-direction:column;gap:16px}
+.frame-label{font-size:11px;color:var(--muted);margin:0 0 5px;font-variant-numeric:tabular-nums}
+.frame{border:1px solid var(--line);border-radius:6px;overflow:hidden;box-shadow:0 10px 30px #0006;flex:0 0 auto}
+
+/* Shared bar chrome, matching public/styles.css */
+.bar{display:flex;align-items:center;gap:8px;height:48px;padding:4px 8px;background:var(--bg);container-type:inline-size;container-name:bar;font-size:13px;line-height:1.2}
+.grip{display:grid;place-items:center;flex:0 0 14px;height:28px;color:var(--muted);font-size:11px;letter-spacing:-2px}
+.brand{display:grid;place-items:center;width:28px;height:28px;flex:0 0 28px;border-radius:7px;background:var(--accent);color:var(--bg);font-size:16px;font-weight:650}
+.chips{display:flex;align-items:stretch;gap:6px;flex:1;min-width:0;overflow:hidden}
+.actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.note{font-size:10px;color:var(--muted);white-space:nowrap}
+.ib,.tlink{display:grid;place-items:center;font-size:16px;color:var(--text);background:var(--panel-alt);border:1px solid var(--line);border-radius:8px;min-height:28px;padding:2px 8px}
+.tlink{font-size:12px;padding:2px 10px}
+.trk{display:block;height:4px;background:var(--panel-alt);border-radius:9px;overflow:hidden;flex:0 0 auto}
+.fill{display:block;height:100%;border-radius:9px}
+.tone-green .fill{background:var(--green)}
+.tone-amber .fill{background:var(--amber)}
+.tone-red .fill{background:var(--red)}
+.tone-amber .pct{color:var(--amber)}
+.tone-red .pct{color:var(--red)}
+.pct{font-size:13px;font-weight:600;letter-spacing:-.3px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pct small{font-size:9px;color:var(--muted);margin-left:1px;font-weight:500}
+.lbl{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.reset{font-size:10.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.reset::before{content:"↻\2009";opacity:.8}
+.l-short,.r-short{display:none}
+.grp{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:8px;background:var(--panel);min-width:0;overflow:hidden}
+.grp.stale{opacity:.68}
+.gicon{display:grid;place-items:center;flex:0 0 24px;font-size:14px;border-right:1px solid var(--line)}
+.err{display:flex;align-items:center;padding:0 10px;font-size:11px;color:var(--muted);white-space:nowrap}
+.err b{color:var(--red);font-weight:600;margin-right:4px}
+
+/* Option A: two-line cells */
+.va .grp{height:40px}
+.va .cell{display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 9px;min-width:0;flex:1 1 0;border-left:1px solid var(--line)}
+.va .gicon + .cell{border-left:0}
+.va .c-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.va .c-bot{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.va .trk{width:38px}
+@container bar (max-width: 880px){
+  .va .note{display:none}
+}
+@container bar (max-width: 780px){
+  .va .full,.va .theme{display:none}
+  .va .l-wide,.va .r-long{display:none}
+  .va .l-short,.va .r-short{display:inline}
+  .va .cell{padding:0 7px}
+  .va .trk{width:24px}
+}
+@container bar (max-width: 580px){
+  .va .grip,.va .brand,.va .trk{display:none}
+  .va .gicon{flex-basis:18px;font-size:12px}
+  .va .cell{padding:0 5px;gap:2px}
+  .va .c-top{gap:4px}
+  .va .pct small{display:none}
+  .va .c-bot{justify-content:flex-end}
+}
+
+/* Option B: single-line segments */
+.vb .grp{height:36px;align-self:center}
+.vb .seg{display:flex;align-items:center;gap:6px;padding:0 10px;border-left:1px solid var(--line);white-space:nowrap}
+.vb .gicon + .seg{border-left:0}
+.vb .trk{width:30px}
+@container bar (max-width: 1300px){
+  .vb .note,.vb .theme{display:none}
+  .vb .trk{display:none}
+}
+@container bar (max-width: 1000px){
+  .vb .full{display:none}
+  .vb .l-wide,.vb .r-long{display:none}
+  .vb .l-short,.vb .r-short{display:inline}
+  .vb .seg{padding:0 7px;gap:5px}
+}
+
+/* Current bar, for comparison */
+.vc .chip{display:flex;align-items:center;gap:7px;flex:1 1 140px;max-width:240px;padding:4px 8px 4px 7px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.vc .chip::before{content:"";width:3px;align-self:stretch;border-radius:3px;background:var(--muted)}
+.vc .chip.tone-green::before{background:var(--green)}
+.vc .chip.tone-amber::before{background:var(--amber)}
+.vc .chip.tone-red::before{background:var(--red)}
+.vc .chip .name{font-size:12px}
+.vc .chip .m{display:flex;align-items:center;gap:6px;margin-left:auto}
+.vc .chip .trk{width:36px;height:5px}
+.vc .chip .pct{color:var(--text)}
+</style>
+</head>
+<body>
+<main class="page">
+  <h1>Compact bar: session limits and resets</h1>
+  <p>Mockup only, with made-up numbers. Each bar is drawn at a real Tauri window width (default 980px, minimum 360px). Hover a cell to see the tooltip text.</p>
+  <div class="controls" id="controls"></div>
+
+  <h2>Current bar <span class="tag">for comparison</span></h2>
+  <p>Shows only each provider's highest window. No reset times, and Claude's Fable limit is only a "!" when it passes 90%.</p>
+  <div class="stage" id="stage-c"></div>
+
+  <h2>Option A: two-line cells <span class="tag">recommended</span></h2>
+  <ul>
+    <li>Still fits in the 48px bar. Each limit gets its own cell: <strong>label and percent</strong> on top, <strong>bar and reset countdown</strong> below.</li>
+    <li>Claude gets three cells: Session, Weekly (all models), Fable. ChatGPT gets two, or one when Codex only reports weekly. Grok gets its shared pool.</li>
+    <li>As the bar narrows, the note, theme button, and Full link go first. Then labels and resets shorten (<code>Session → 5h</code>, <code>2h 14m → 2h</code>), then the bars go. Numbers and resets stay visible.</li>
+  </ul>
+  <div class="stage" id="stage-a"></div>
+
+  <h2>Option B: single-line segments</h2>
+  <ul>
+    <li>Everything on one line per limit: <code>Session ▬ 42% ↻ 2h 14m</code>. Easier to scan, but it needs about 1300px to show the bars.</li>
+    <li>At the default 980px the bars are already gone, so it's close to Option A without the visual meter.</li>
+  </ul>
+  <div class="stage" id="stage-b"></div>
+
+  <h2>Questions before I build it</h2>
+  <ul>
+    <li>A or B?</li>
+    <li>For Claude, keep the all-models <strong>Weekly</strong> cell, or show only Session + Fable to save space?</li>
+    <li>Reset format: countdown (<code>↻ 2h 14m</code>) as shown, or clock time (<code>↻ 3:40 PM</code> / <code>↻ Thu</code>)? The tooltip always has the exact time.</li>
+  </ul>
+</main>
+
+<script>
+const now = Date.now();
+const PROVIDERS = [
+  { id: 'claude', name: 'Claude', icon: '✳' },
+  { id: 'chatgpt', name: 'ChatGPT', icon: '◎' },
+  { id: 'grok', name: 'Grok', icon: '𝕏' },
+];
+const D = 1440;
+const w = (long, short, pct, mins, full) => ({ long, short, pct, mins, full });
+const SCENARIOS = {
+  typical: { label: 'Typical', data: {
+    claude: { windows: [w('Session', '5h', 42, 134, 'Current session · 5 hours'), w('Weekly', '7d', 61, 3 * D + 262, 'All models · weekly'), w('Fable', 'Fable', 78, 3 * D + 262, 'Fable · weekly')] },
+    chatgpt: { windows: [w('Session', '5h', 18, 251, '5 hours'), w('Weekly', '7d', 33, 5 * D + 64, 'Weekly')] },
+    grok: { windows: [w('Weekly', '7d', 9, 6 * D + 300, 'Shared weekly pool')] },
+  } },
+  hot: { label: 'Near limits', data: {
+    claude: { windows: [w('Session', '5h', 93, 12, 'Current session · 5 hours'), w('Weekly', '7d', 74, D + 130, 'All models · weekly'), w('Fable', 'Fable', 96, D + 130, 'Fable · weekly')] },
+    chatgpt: { windows: [w('Weekly', '7d', 71, 2 * D + 30, 'Weekly (Codex returned weekly only)')] },
+    grok: { windows: [w('Weekly', '7d', 55, 4 * D + 5, 'Shared weekly pool')] },
+  } },
+  errors: { label: 'Stale / errors', data: {
+    claude: { stale: true, windows: [w('Session', '5h', 42, 134, 'Current session · 5 hours'), w('Weekly', '7d', 61, 3 * D + 262, 'All models · weekly'), w('Fable', 'Fable', 78, 3 * D + 262, 'Fable · weekly')] },
+    chatgpt: { error: 'Unavailable', short: '—' },
+    grok: { error: 'Login expired', short: 'Login' },
+  } },
+};
+let scenario = 'typical';
+
+const tone = p => (p >= 90 ? 'red' : p >= 70 ? 'amber' : 'green');
+function fmt(m) {
+  if (m >= D) return [`${Math.floor(m / D)}d ${Math.floor((m % D) / 60)}h`, `${Math.floor(m / D)}d`];
+  if (m >= 60) return [`${Math.floor(m / 60)}h ${m % 60}m`, `${Math.floor(m / 60)}h`];
+  return [`${m}m`, `${m}m`];
+}
+const at = m => new Date(now + m * 60000).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+const title = (p, x, stale) => `${p.name} · ${x.full}\n${x.pct}% used · resets ${at(x.mins)} (in ${fmt(x.mins)[0]})${stale ? '\nShowing the last successful reading' : ''}`;
+const labels = x => `<span class="lbl l-wide">${x.long}</span><span class="lbl l-short">${x.short}</span>`;
+const reset = x => { const [l, s] = fmt(x.mins); return `<span class="reset"><span class="r-long">${l}</span><span class="r-short">${s}</span></span>`; };
+const track = x => `<span class="trk"><span class="fill" style="width:${x.pct}%"></span></span>`;
+const pct = x => `<span class="pct">${x.pct}<small>%</small></span>`;
+
+function chrome(variant, inner) {
+  return `<div class="bar ${variant}"><span class="grip">⋮⋮</span><span class="brand">▥</span><div class="chips">${inner}</div><div class="actions"><span class="note">Updated 1m ago</span><span class="ib">↻</span><span class="ib theme">◐</span><span class="tlink full">Full</span></div></div>`;
+}
+
+function group(p, cellFn) {
+  const s = SCENARIOS[scenario].data[p.id];
+  if (s.error) {
+    return `<div class="grp" style="flex:1 1 0" title="${p.name}\n${s.error}"><span class="gicon">${p.icon}</span><span class="err"><b>!</b><span class="l-wide">${s.error}</span><span class="l-short">${s.short}</span></span></div>`;
+  }
+  return `<div class="grp${s.stale ? ' stale' : ''}" style="flex:${s.windows.length} 1 0"><span class="gicon">${p.icon}</span>${s.windows.map(x => cellFn(p, x, s.stale)).join('')}</div>`;
+}
+
+const cellA = (p, x, stale) => `<div class="cell tone-${tone(x.pct)}" title="${title(p, x, stale)}"><div class="c-top">${labels(x)}${pct(x)}</div><div class="c-bot">${track(x)}${reset(x)}</div></div>`;
+const cellB = (p, x, stale) => `<div class="seg tone-${tone(x.pct)}" title="${title(p, x, stale)}">${labels(x)}${track(x)}${pct(x)}${reset(x)}</div>`;
+
+function barC() {
+  return chrome('vc', PROVIDERS.map(p => {
+    const s = SCENARIOS[scenario].data[p.id];
+    if (s.error) return `<div class="chip"><span>${p.icon}</span><span class="name">${p.name}</span><span class="m"><span class="pct">${s.short}</span></span></div>`;
+    const hot = s.windows.filter(x => !['Fable'].includes(x.short)).reduce((a, b) => (b.pct > a.pct ? b : a));
+    return `<div class="chip tone-${tone(hot.pct)}"><span>${p.icon}</span><span class="name">${p.name}</span><span class="m">${track(hot)}${pct(hot)}</span><span class="lbl">${hot.short}</span></div>`;
+  }).join(''));
+}
+
+function frames(id, widths, build) {
+  document.getElementById(id).innerHTML = widths.map(width =>
+    `<div><div class="frame-label">${width} × 48</div><div class="frame" style="width:${width}px">${build()}</div></div>`).join('');
+}
+
+function render() {
+  frames('stage-c', [980], barC);
+  frames('stage-a', [980, 720, 520], () => chrome('va', PROVIDERS.map(p => group(p, cellA)).join('')));
+  frames('stage-b', [1400, 980], () => chrome('vb', PROVIDERS.map(p => group(p, cellB)).join('')));
+  document.getElementById('controls').innerHTML =
+    Object.entries(SCENARIOS).map(([key, s]) => `<button data-s="${key}" aria-pressed="${key === scenario}">${s.label}</button>`).join('') +
+    `<span class="sep"></span><button data-theme>${document.body.classList.contains('light') ? 'Dark' : 'Light'} theme</button>`;
+}
+
+document.getElementById('controls').addEventListener('click', event => {
+  const button = event.target.closest('button');
+  if (!button) return;
+  if (button.dataset.s) scenario = button.dataset.s;
+  if ('theme' in button.dataset) document.body.classList.toggle('light');
+  render();
+});
+render();
+</script>
+</body>
+</html>

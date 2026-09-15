@@ -63,24 +63,28 @@ function applyAccounts(payload) {
   lastDiscovery = Date.now();
 }
 
-function valueLabel(chip) {
-  if (chip.displayPercent !== null) return `${escapeHtml(chip.displayPercent)}<span>%</span>`;
-  if (chip.state === 'loading') return '…';
-  if (chip.state === 'missing') return 'Login';
-  return '—';
+const STATUS_LABELS = { loading: ['Loading…', '…'], missing: ['Login needed', 'Login'], error: ['Unavailable', '—'] };
+
+const sized = (long, short) => `<span class="long">${escapeHtml(long)}</span><span class="short">${escapeHtml(short)}</span>`;
+
+function renderCell(info, cell) {
+  const percent = Math.min(100, cell.percent);
+  const meter = `<span class="compact-track" role="meter" aria-label="${escapeHtml(`${info.name} ${cell.fullLabel}`)} used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}" aria-valuetext="${escapeHtml(cell.displayPercent)} percent used"><span class="fill" style="width:${percent}%"></span></span>`;
+  const reset = cell.reset ? `<span class="compact-reset">${sized(cell.reset.long, cell.reset.short)}</span>` : '';
+  return `<span class="compact-cell tone-${cell.color}" title="${escapeHtml(cell.title)}"><span class="compact-cell-top"><span class="compact-label">${sized(cell.label, cell.shortLabel)}</span><strong>${escapeHtml(cell.displayPercent)}<span>%</span></strong></span><span class="compact-cell-bottom">${meter}${reset}</span></span>`;
 }
 
 function renderChip(info) {
   const account = state.accounts?.find(item => item.id === info.id);
   const snapshot = state.usage?.providers?.find(provider => provider.id === info.id);
   const chip = compactChip(info, account, snapshot);
-  const meter = chip.percent === null ? '' :
-    `<span class="compact-track" role="meter" aria-label="${escapeHtml(info.name)} used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, chip.percent)}" aria-valuetext="${escapeHtml(chip.displayPercent)} percent used"><span class="fill ${chip.color}" style="width:${Math.min(100, chip.percent)}%"></span></span>`;
   const alert = chip.urgentModelCount
-    ? `<span class="compact-alert" title="${chip.urgentModelCount} model limit${chip.urgentModelCount === 1 ? '' : 's'} at 90% or more">!</span>`
+    ? `<span class="compact-alert" title="${chip.urgentModelCount} more model limit${chip.urgentModelCount === 1 ? '' : 's'} at 90% or more">!</span>`
     : '';
-  const window = chip.windowLabel ? `<span class="compact-window">${escapeHtml(chip.windowLabel)}</span>` : '';
-  return `<a class="compact-chip ${info.id} ${chip.state}${chip.percent === null ? '' : ` tone-${chip.color}`}" href="/#${info.id}-title" title="${escapeHtml(chip.title)}"><span class="compact-icon" aria-hidden="true">${info.icon}</span><span class="compact-copy"><span class="compact-name">${escapeHtml(info.name)}</span><span class="compact-meter">${meter}<strong>${valueLabel(chip)}</strong></span></span>${window}${alert}</a>`;
+  const body = chip.cells.length
+    ? chip.cells.map(cell => renderCell(info, cell)).join('')
+    : `<span class="compact-status">${sized(...(STATUS_LABELS[chip.state] || STATUS_LABELS.error))}</span>`;
+  return `<a class="compact-chip ${info.id} ${chip.state}" href="/#${info.id}-title" title="${escapeHtml(chip.title)}" style="flex-grow:${Math.max(1, chip.cells.length)}"><span class="compact-sr">${escapeHtml(info.name)}</span><span class="compact-icon" aria-hidden="true">${info.icon}</span>${body}${alert}</a>`;
 }
 
 function render() {
@@ -98,7 +102,8 @@ function render() {
     updateNote();
     return;
   }
-  const signature = JSON.stringify([enabled.map(provider => provider.id), state.accounts, state.usage?.providers]);
+  // The minute bucket keeps reset countdowns ticking between provider polls.
+  const signature = JSON.stringify([enabled.map(provider => provider.id), state.accounts, state.usage?.providers, Math.floor(Date.now() / 60000)]);
   if (signature !== lastChipsSignature) {
     $('chips').innerHTML = enabled.map(provider => renderChip(provider)).join('');
     lastChipsSignature = signature;

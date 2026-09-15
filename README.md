@@ -24,7 +24,9 @@ Open [http://127.0.0.1:3170](http://127.0.0.1:3170). This launch uses its own po
 header identifies this build as **Combined**. Keep the terminal running while using the dashboard.
 For a one-line strip of the same meters, open [http://127.0.0.1:3170/compact](http://127.0.0.1:3170/compact)
 or choose **Compact** in the header. Resize that window into a thin bar and keep it on top; it uses
-the same local API, colors, and refresh schedule as the dashboard.
+the same local API, colors, and refresh schedule as the dashboard. Each provider shows its session and
+weekly limits with a reset countdown; Claude also shows model limits such as Fable. Hover a cell for
+the exact reset time.
 After a PC restart or crash, run the same command again.
 There is no build step, database, cloud service, or API-key setup. The only dependency generates phone QR
 codes locally; the dashboard has no third-party browser requests.

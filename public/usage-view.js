@@ -1,10 +1,15 @@
 export const PROVIDER_CATALOG = [
-  { id: 'claude', name: 'Claude', icon: '✳', loginCommand: 'claude auth login' },
+  // Claude's model limits (e.g. Fable) always get a compact cell; other scoped limits only when hot.
+  { id: 'claude', name: 'Claude', icon: '✳', loginCommand: 'claude auth login', showModelLimits: true },
   { id: 'chatgpt', name: 'ChatGPT', icon: '◎', loginCommand: 'codex login' },
   { id: 'grok', name: 'Grok', icon: '𝕏', loginCommand: 'grok login' },
 ];
 
 const GENERIC_SCOPES = new Set(['all', 'general', 'shared', 'codex', 'subscription']);
+const FIVE_HOURS = 5 * 60 * 60;
+const WEEK = 7 * 24 * 60 * 60;
+const MAX_COMPACT_CELLS = 3;
+const HOT_SCOPED_PERCENT = 70;
 
 export function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
@@ -68,6 +73,7 @@ export function windowShortLabel(window) {
     if (seconds >= 60 && seconds % 60 === 0) return `${seconds / 60}m`;
   }
   if (window.id === 'session' || window.id === 'weekly') return window.id;
+  if (window.id === 'monthly') return 'mo';
   const label = String(window.label || window.id || '').trim();
   return label ? label.replace(/\s+/g, ' ').slice(0, 12) : '';
 }
@@ -91,7 +97,40 @@ export function hottestWindow(windows) {
 function resetText(window, now) {
   const reset = timestamp(window.resetsAt);
   if (reset === null) return 'reset time unavailable';
-  return reset > now ? `resets in ${duration(reset - now)}` : 'reset time passed';
+  if (reset <= now) return 'reset time passed';
+  const clock = new Date(reset).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  return `resets in ${duration(reset - now)} (${clock})`;
+}
+
+export function resetCountdown(value, now = Date.now()) {
+  const reset = timestamp(value);
+  if (reset === null) return null;
+  if (reset <= now) return { long: 'now', short: 'now' };
+  const long = duration(reset - now);
+  return { long, short: long.split(' ')[0] };
+}
+
+function cellLabels(window) {
+  const session = window.durationSeconds === FIVE_HOURS;
+  if (window.scope) {
+    const scope = String(window.scope).replace(/\s+/g, ' ').trim();
+    return { label: session ? `${scope} 5h` : scope, shortLabel: `${scope.split(' ')[0].slice(0, 8)}${session ? ' 5h' : ''}` };
+  }
+  const label = session ? 'Session' : window.durationSeconds === WEEK ? 'Weekly' : window.id === 'monthly' ? 'Monthly' : windowShortLabel(window);
+  return { label, shortLabel: windowShortLabel(window) };
+}
+
+const byDuration = (a, b) => (a.durationSeconds ?? Number.MAX_SAFE_INTEGER) - (b.durationSeconds ?? Number.MAX_SAFE_INTEGER);
+
+// Account-wide windows first (shortest first), then the hottest scoped limits that still fit.
+export function compactCells(windows, { showModelLimits = false } = {}) {
+  const { primary, scoped } = splitWindows(windows);
+  const shown = [...primary].sort(byDuration);
+  const extra = scoped.filter(window => showModelLimits || window.usedPercent >= HOT_SCOPED_PERCENT)
+    .sort((a, b) => b.usedPercent - a.usedPercent || byDuration(a, b))
+    .slice(0, Math.max(0, MAX_COMPACT_CELLS - shown.length))
+    .sort((a, b) => byDuration(a, b) || String(a.scope).localeCompare(String(b.scope)));
+  return [...shown, ...extra];
 }
 
 export function compactChip(info, account, snapshot, now = Date.now()) {
@@ -130,6 +169,17 @@ export function compactChip(info, account, snapshot, now = Date.now()) {
   if (stale) lines.push('Showing the last successful reading');
   if (hasHistory) lines.push(`Updated ${relative(provider.lastSuccessAt, now)}`);
 
+  const cells = compactCells(windows, { showModelLimits: info.showModelLimits }).map(item => ({
+    id: item.id,
+    ...cellLabels(item),
+    fullLabel: item.label || item.id,
+    percent: item.usedPercent,
+    displayPercent: formatPercent(item.usedPercent),
+    color: meterColor(item.usedPercent),
+    reset: resetCountdown(item.resetsAt, now),
+    title: `${info.name} · ${item.label || item.id}\n${formatPercent(item.usedPercent)}% used · ${resetText(item, now)}${stale ? '\nShowing the last successful reading' : ''}`,
+  }));
+
   return {
     id: info.id,
     name: info.name,
@@ -139,7 +189,9 @@ export function compactChip(info, account, snapshot, now = Date.now()) {
     color: percent === null ? 'neutral' : meterColor(percent),
     windowLabel: windowShortLabel(window),
     displayPercent: percent === null ? null : formatPercent(percent),
-    urgentModelCount: scoped.filter(item => item.usedPercent >= 90).length,
+    // Only hot limits that did not fit in a cell still need the "!" badge.
+    urgentModelCount: scoped.filter(item => item.usedPercent >= 90 && !cells.some(cell => cell.id === item.id)).length,
+    cells,
     title: lines.join('\n'),
   };
 }
