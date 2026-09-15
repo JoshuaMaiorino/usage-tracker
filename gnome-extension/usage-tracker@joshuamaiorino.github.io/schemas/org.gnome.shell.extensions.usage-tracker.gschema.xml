@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.usage-tracker" path="/org/gnome/shell/extensions/usage-tracker/">
+    <key name="server-url" type="s">
+      <default>'http://127.0.0.1:3140'</default>
+      <summary>Usage Tracker server URL</summary>
+      <description>Local server the top bar reads from. It must match the port the server was started with.</description>
+    </key>
+  </schema>
+</schemalist>

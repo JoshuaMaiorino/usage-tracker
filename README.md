@@ -83,6 +83,31 @@ That writes:
 
 Run the installer, then launch **Usage Tracker** from the Start menu or your desktop environment. The packaged app still needs `node` on `PATH`; it does not bundle Chromium or a second Node runtime. Do not ship it as a sandboxed Flatpak/Snap unless the sandbox can read CLI logins under your home directory.
 
+## GNOME top bar
+
+On GNOME 48–50 an extension puts the compact meters straight into the top bar. Hover for usage details;
+click for the same details plus **Refresh usage**, **Open dashboard**, and **Open compact bar**. It works
+on Wayland, where the tray app's pinned bar cannot position itself.
+
+```sh
+npm ci
+gnome-extension/install.sh
+```
+
+The script copies the extension into `~/.local/share/gnome-shell/extensions/`, enables it, and installs a
+systemd user service (`usage-tracker.service`) that starts the server on `127.0.0.1:3140` at login. Run it
+from a shell where `node` 20+ resolves; the service records that path. Log out and back in once so GNOME
+Shell loads the extension. Options:
+
+```sh
+USAGE_TRACKER_PORT=3170 gnome-extension/install.sh   # another port
+gnome-extension/install.sh --no-service              # extension only; start the server yourself
+gnome-extension/install.sh --uninstall
+```
+
+Re-run the script after pulling changes. The extension only reads the local server's `/api/usage`, so it
+never adds provider requests.
+
 ## Accounts and settings
 
 The first launch enables every supported CLI login found on this PC:

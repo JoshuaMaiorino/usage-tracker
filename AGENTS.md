@@ -29,6 +29,8 @@ Those endpoints are undocumented and can change without notice; the error-state 
 - Zero or few dependencies; native `http` unless Express is clearly smaller
 - Dashboard is static HTML/CSS/JS in `public/`
 - Optional Tauri 2 tray shell in `src-tauri/` reuses that dashboard over localhost; do not rewrite providers in Rust
+- Optional GNOME Shell top-bar extension in `gnome-extension/` reads `/api/usage` and imports `public/usage-view.js`
+  (copied in by `install.sh`), so keep that module free of DOM access
 
 ## Data flow
 
@@ -90,6 +92,7 @@ npm test     # Node's built-in test runner; synthetic providers and temporary cr
 npm run check
 npm run desktop      # Tauri tray + compact overlay; requires Rust and Node
 npm run desktop:build
+gnome-extension/install.sh # GNOME top-bar extension + systemd user service; log out/in to load on Wayland
 ```
 
 No build step or linter is required. Keep the near-zero-dependency posture. Tests must never rename or

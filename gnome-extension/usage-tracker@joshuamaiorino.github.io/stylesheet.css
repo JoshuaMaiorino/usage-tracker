@@ -1,0 +1,30 @@
+/* Top bar chips: the always-dark panel, so colors follow the dashboard's dark palette. */
+.usage-tracker-chips { spacing: 12px; }
+.usage-tracker-chip { spacing: 5px; }
+.usage-tracker-chip-icon { font-size: 13px; }
+.usage-tracker-chip-value { font-weight: 600; font-feature-settings: "tnum"; }
+.usage-tracker-chip-window { font-size: 9px; color: rgba(255, 255, 255, 0.6); }
+.usage-tracker-chip-alert {
+  font-size: 9px; font-weight: 800; color: #101313; background-color: #ef8f85;
+  border-radius: 99px; padding: 0 4px;
+}
+
+.usage-tracker-track { height: 5px; border-radius: 3px; background-color: rgba(128, 128, 128, 0.35); }
+.usage-tracker-fill { height: 5px; border-radius: 3px; background-color: #a0aaa4; }
+.usage-tracker-green { background-color: #90ceac; }
+.usage-tracker-amber { background-color: #e9bc70; }
+.usage-tracker-red { background-color: #ef8f85; }
+
+/* Details, shared by the hover panel and the click menu. */
+.usage-tracker-hover { padding: 14px 16px; }
+.usage-tracker-details { width: 300px; spacing: 14px; }
+.usage-tracker-provider { spacing: 6px; }
+.usage-tracker-provider-header { spacing: 6px; }
+.usage-tracker-provider-icon { font-size: 15px; }
+.usage-tracker-provider-name { font-weight: 700; }
+.usage-tracker-window { spacing: 3px; }
+.usage-tracker-window-percent { font-weight: 700; font-feature-settings: "tnum"; }
+.usage-tracker-subhead { font-size: 11px; font-weight: 700; padding-top: 4px; }
+.usage-tracker-small { font-size: 11px; }
+.usage-tracker-warning { font-size: 11px; color: #e9bc70; }
+.usage-tracker-footer { font-size: 11px; }
