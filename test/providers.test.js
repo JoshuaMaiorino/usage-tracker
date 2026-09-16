@@ -395,6 +395,27 @@ test('atomic replacement refuses changed contents and cleans temporary files', a
   assert.deepEqual(await readdir(join(f.homeDir, '.codex')), ['auth.json']);
 });
 
+test('Windows ACL copy still replaces credentials when PowerShell 7 module paths are inherited', async t => {
+  if (process.platform !== 'win32') {
+    t.skip('Windows-only ACL copy');
+    return;
+  }
+  const original = process.env.PSModulePath;
+  t.after(() => {
+    if (original === undefined) delete process.env.PSModulePath;
+    else process.env.PSModulePath = original;
+  });
+  const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
+  process.env.PSModulePath = [join(programFiles, 'PowerShell', '7', 'Modules'), join(programFiles, 'PowerShell', 'Modules'), original].filter(Boolean).join(';');
+  const f = await fixture(t);
+  await f.write('chatgpt', codexAuth());
+  const snapshot = await readCredentials('chatgpt', f);
+  const next = codexAuth();
+  next.tokens.access_token = 'rotated-after-pwsh-modules';
+  assert.equal(await replaceCredentials(snapshot, next), true);
+  assert.equal((await f.read('chatgpt')).tokens.access_token, 'rotated-after-pwsh-modules');
+});
+
 test('lock guard detects removal and does not silently permit a refresh', async t => {
   const f = await fixture(t);
   const path = await f.write('claude', claudeAuth());
