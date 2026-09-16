@@ -130,8 +130,10 @@ incorporate intervening metadata edits when token identity is unchanged, and
 prefer the CLI when its tokens change. Atomic replacement uses a temporary file
 in the same directory, syncs and closes it, and compares the original again
 before rename. Unix permissions never widen; on Windows a hidden, noninteractive
-PowerShell operation copies the source ACL to the empty temporary file before
-writing credential contents. A failure prevents replacement. No credential
+Windows PowerShell 5.1 operation copies the source ACL to the empty temporary
+file before writing credential contents. That child uses the 5.1 module path so
+Get-Acl still loads when the app or CI was launched from PowerShell 7. A failure
+prevents replacement. No credential
 backup or permanent app-owned lock is created.
 
 Run `node --test test/providers.test.js` for fixture-based adapter, discovery,
