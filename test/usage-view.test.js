@@ -4,6 +4,8 @@ import {
   compactChip,
   hottestWindow,
   meterColor,
+  providerInfo,
+  providerType,
   resetCountdown,
   splitWindows,
   windowShortLabel,
@@ -154,4 +156,36 @@ test('stale last-good readings keep their percent and mark the chip stale', () =
   assert.equal(chip.percent, 73);
   assert.equal(chip.color, 'amber');
   assert.match(chip.title, /last successful reading/i);
+});
+
+test('extra Claude logins inherit the Claude catalog entry but keep their own name', () => {
+  const account = { id: 'claude-work', name: 'Claude · work', found: true, plan: 'Pro' };
+  const merged = providerInfo(account);
+  assert.equal(merged.type, 'claude');
+  assert.equal(merged.id, 'claude-work');
+  assert.equal(merged.name, 'Claude · work');
+  assert.equal(merged.icon, '✳');
+  assert.equal(merged.loginCommand, 'claude auth login');
+  assert.equal(merged.showModelLimits, true);
+  assert.equal(merged.plan, 'Pro');
+  assert.equal(providerInfo('chatgpt').name, 'ChatGPT');
+  assert.equal(providerInfo('chatgpt').showModelLimits, false);
+  assert.equal(providerType('claude-work'), 'claude');
+  assert.equal(providerType('claudex'), 'claudex');
+  assert.equal(providerType('grok'), 'grok');
+  // An unknown id still renders rather than throwing.
+  assert.equal(providerInfo({ id: 'gemini', name: 'Gemini' }).icon, '•');
+});
+
+test('a second Claude chip is built from its own snapshot', () => {
+  const info = providerInfo({ id: 'claude-work', name: 'Claude · work', found: true });
+  const chip = compactChip(info, { id: 'claude-work', found: true }, {
+    id: 'claude-work', status: 'ok', plan: 'Pro', lastSuccessAt: new Date(now - 60000).toISOString(),
+    windows: [{ id: 'session', label: 'Session', usedPercent: 44, durationSeconds: 18000, resetsAt: new Date(now + 3600000).toISOString() }],
+  }, now);
+  assert.equal(chip.id, 'claude-work');
+  assert.equal(chip.name, 'Claude · work');
+  assert.equal(chip.state, 'ok');
+  assert.equal(chip.displayPercent, '44');
+  assert.ok(chip.title.startsWith('Claude · work'));
 });

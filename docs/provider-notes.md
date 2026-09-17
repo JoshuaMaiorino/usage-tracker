@@ -46,6 +46,14 @@ This protocol may need updating when Claude Code changes it.
 File-based Claude credentials are supported. A missing file on macOS explicitly
 mentions that the login may instead be in Keychain; this app does not extract it.
 
+Claude Code keys one account to one config directory, so several subscriptions on a
+PC appear as `~/.claude` plus siblings such as `~/.claude-work` (what `CLAUDE_CONFIG_DIR`
+selects). Each directory with a `.credentials.json` becomes its own account, with its own
+refresh lock inside that directory — locks are never shared between accounts. The account
+email is read from `oauthAccount.emailAddress` in that directory's `.claude.json`
+(`~/.claude.json` for the default directory), which is metadata beside the credentials, not
+a token. That file can be large, so it is size-capped and cached by mtime.
+
 Account details include an explicit usage-credit enabled/disabled state and spent amount, even when
 the returned spending is zero. The observed `spend.used` structure supplies `amount_minor`, `currency`,
 and `exponent`; all three must validate before formatting. Optional `spend.limit` and `spend.balance`

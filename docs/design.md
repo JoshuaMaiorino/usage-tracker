@@ -19,6 +19,7 @@ Credential files the app will look for (Windows paths; `~` equivalents on macOS/
 | Provider | Local credential | What it represents |
 |---|---|---|
 | Claude | `%USERPROFILE%\.claude\.credentials.json` | Claude Code / claude.ai subscription login |
+| Claude (extra accounts) | `%USERPROFILE%\.claude-<name>\.credentials.json`, or `CLAUDE_CONFIG_DIR` | A second subscription: Claude Code keys one account per config directory |
 | ChatGPT / Codex | `%USERPROFILE%\.codex\auth.json` | Codex CLI / ChatGPT login |
 | Grok | `%USERPROFILE%\.grok\auth.json` | Grok Build / SuperGrok login |
 
@@ -38,7 +39,9 @@ Cookie-scraping and browser extensions are out of scope. They are fragile and wo
 
 ## What you will see
 
-Three provider cards, always in Claude → GPT → Grok order.
+Three provider cards, always in Claude → GPT → Grok order. A provider with several local logins gets one
+card per account — an id of `claude-<suffix>` for each extra Claude config directory, named for the email
+that directory's CLI recorded (`Claude · work`). A single Claude login keeps the plain `Claude` card.
 
 **Claude** (matches claude.ai Settings → Usage)
 
@@ -98,6 +101,7 @@ usage-tracker/
   package.json
   server.js              # HTTP server, LAN bind, static + /api
   lib/
+    accounts.js          # list local accounts, incl. every Claude config directory
     config.js            # read/write data/config.json
     discover.js          # find local CLI logins (no token values in logs)
     providers/
@@ -248,7 +252,8 @@ Live provider calls can fail if an endpoint moved. Treat a well-formed error car
 3. **PC is the hub** — phone is a viewer over LAN. Keeps it local and simple.
 4. **3-minute poll + last-good cache** — Claude rate-limits the usage endpoint.
 5. **Windows identified by duration/name, not array position** — provider payloads shuffle.
-6. **v1 is three providers only** — Claude, GPT, Grok, in that order.
+6. **v1 is three providers only** — Claude, GPT, Grok, in that order. Several accounts of one provider are
+   separate cards, not a merged total: the limits are per subscription.
 
 ## Implementation notes (review pass)
 

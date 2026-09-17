@@ -255,3 +255,47 @@ test('combined shell and phone icons are served from the static allowlist', asyn
   assert.match(await compact.text(), /compact-bar/);
   assert.equal((await fetch(`${ctx.base}/compact.html`)).status, 200);
 });
+
+test('a second Claude login gets its own card, its own poll, and never leaks its path', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'usage-tracker-server-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const second = {
+    id: 'claude-work', type: 'claude', name: 'Claude · work', found: true, status: 'found', plan: 'Pro',
+    loginCommand: 'claude auth login', email: 'work@example.invalid', credentialFile: '/home/tester/.claude-work/.credentials.json',
+  };
+  let discovered = [{ ...accounts[0], type: 'claude', credentialFile: '/home/tester/.claude/.credentials.json' }, ...accounts.slice(1)];
+  const counters = {};
+  const providers = Object.fromEntries([...accounts, second].map(account => [account.id, async () => {
+    counters[account.id] = (counters[account.id] ?? 0) + 1;
+    return { id: account.id, name: account.name, plan: account.plan, windows: [{ id: 'weekly', label: 'Weekly', usedPercent: 12, resetsAt: null }], extras: [] };
+  }]));
+  const app = await createApplication({
+    port: 0, configPath: join(dir, 'config.json'), discovery: async () => discovered, providers, autoStart: false, addresses: [],
+  });
+  const base = (await app.listen()).localUrl;
+  t.after(() => app.close());
+  const get = async path => (await fetch(`${base}${path}`)).json();
+
+  // The second login appears only once its config directory does.
+  assert.deepEqual((await get('/api/accounts')).accounts.map(account => account.id), ['claude', 'chatgpt', 'grok']);
+  discovered = [discovered[0], second, ...discovered.slice(1)];
+  const listed = await get('/api/accounts');
+  assert.deepEqual(listed.accounts.map(account => account.id), ['claude', 'claude-work', 'chatgpt', 'grok']);
+  assert.deepEqual(listed.accounts.map(account => account.name), ['Claude', 'Claude · work', 'ChatGPT', 'Grok']);
+  assert.equal(listed.settings.enabled['claude-work'], true);
+  assert.ok(!JSON.stringify(listed).includes('.credentials.json'));
+
+  await app.cache.refresh({ force: true });
+  const usage = await get('/api/usage');
+  assert.deepEqual(usage.providers.map(provider => provider.id), ['claude', 'claude-work', 'chatgpt']);
+  assert.equal(usage.providers[1].name, 'Claude · work');
+  assert.equal(usage.providers[1].plan, 'Pro');
+  assert.equal(usage.providers[1].loginCommand, 'claude auth login');
+  assert.equal(counters['claude-work'], 1);
+  assert.ok(counters.claude >= 1);
+
+  // Removing the directory drops its card without disturbing the canonical account.
+  discovered = discovered.filter(account => account.id !== 'claude-work');
+  await get('/api/accounts');
+  assert.deepEqual((await get('/api/usage')).providers.map(provider => provider.id), ['claude', 'chatgpt']);
+});

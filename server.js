@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import qrcode from 'qrcode-generator';
-import { ConfigStore, PROVIDER_IDS, validateSettings, applyDiscovery } from './lib/config.js';
+import { ConfigStore, accountIds, validateSettings, applyDiscovery } from './lib/config.js';
 import { discoverAccounts } from './lib/discover.js';
 import { createProviders } from './lib/providers/index.js';
 import { UsageCache } from './lib/cache.js';
@@ -58,6 +58,13 @@ export function localAddresses(interfaces = networkInterfaces()) {
     .map(item => item.address))].sort((a, b) => rank(a) - rank(b));
 }
 
+/** Card order, titles, and login hints for the cache; never credential paths. */
+const cacheAccounts = accounts => accounts.map(({ id, name, loginCommand }) => ({ id, name, loginCommand }));
+
+const enabledIds = (accounts, settings) => accountIds(accounts, Object.keys(settings.enabled)).filter(id => settings.enabled[id]);
+// Which logins exist and where they live; a changed value means rebuilding fetchers.
+const signature = accounts => JSON.stringify(accounts.map(({ id, name, credentialFile }) => [id, name, credentialFile]));
+
 function sendJson(response, status, payload) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   response.end(JSON.stringify(payload));
@@ -99,8 +106,15 @@ export async function createApplication({
   let settings = await store.load(accounts);
   const boundLan = settings.lanEnabled;
   const csrfToken = randomBytes(32).toString('hex');
-  const cache = new UsageCache({ providers: providers || createProviders({ homeDir }), intervalMs: settings.refreshIntervalMs, now, onDiagnostic });
-  cache.setEnabled(PROVIDER_IDS.filter(id => settings.enabled[id]));
+  // Fixed provider injection (tests, the Tauri shell) stays authoritative; otherwise each
+  // discovered account gets its own fetcher, rebuilt when the set of logins changes.
+  const fixedProviders = providers ?? null;
+  const cache = new UsageCache({
+    providers: fixedProviders || createProviders({ homeDir, accounts }),
+    accounts: cacheAccounts(accounts),
+    intervalMs: settings.refreshIntervalMs, now, onDiagnostic,
+  });
+  cache.setEnabled(enabledIds(accounts, settings));
   let settingsQueue = Promise.resolve();
   let actualPort = port;
   let closed = false;
@@ -115,6 +129,7 @@ export async function createApplication({
     configuredLanEnabled: settings.lanEnabled,
   });
   const usage = () => ({ providers: cache.snapshot(), nextRefreshAt: cache.nextRefreshAt, serverTime: new Date(now()).toISOString() });
+  // Credential paths stay on this side of the API; only public metadata is served.
   const accountResponse = () => ({
     accounts: accounts.map(({ id, name, found, status, plan, email, loginCommand, message }) => ({
       id, name, found, status, plan, email, loginCommand, message, enabled: settings.enabled[id] === true,
@@ -133,15 +148,20 @@ export async function createApplication({
       let next = applyDiscovery(settings, discovered);
       if (input !== undefined) next = validateSettings(input, next);
       if (input?.enableAll) {
-        next.enabled = Object.fromEntries(PROVIDER_IDS.map(id => [id, discovered.some(account => account.id === id && account.found)]));
+        next.enabled = Object.fromEntries(accountIds(discovered, Object.keys(next.enabled))
+          .map(id => [id, discovered.some(account => account.id === id && account.found)]));
       }
       const changed = JSON.stringify(next) !== JSON.stringify(settings);
       if (changed) await store.save(next);
+      // A login added or removed since startup changes which fetchers exist.
+      const accountsChanged = signature(discovered) !== signature(accounts);
       accounts = discovered;
-      const enabledChanged = PROVIDER_IDS.some(id => next.enabled[id] !== settings.enabled[id]);
+      if (accountsChanged) cache.setAccounts(cacheAccounts(accounts), fixedProviders || createProviders({ homeDir, accounts }));
+      const ids = accountIds(accounts, Object.keys(next.enabled));
+      const enabledChanged = accountsChanged || ids.some(id => next.enabled[id] !== settings.enabled[id]);
       if (next.refreshIntervalMs !== settings.refreshIntervalMs) cache.setInterval(next.refreshIntervalMs);
       settings = next;
-      if (enabledChanged) void cache.setEnabled(PROVIDER_IDS.filter(id => settings.enabled[id])).catch(() => {});
+      if (enabledChanged) void cache.setEnabled(enabledIds(accounts, settings)).catch(() => {});
     });
     settingsQueue = update;
     return update;

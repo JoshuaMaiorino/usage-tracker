@@ -13,11 +13,11 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 // Copied from public/ by install.sh, so the top bar and the compact strip pick meters the same way.
 import {
-  PROVIDER_CATALOG,
   compactChip,
   duration,
   formatPercent,
   meterColor,
+  providerInfo,
   relative,
   splitWindows,
   timestamp,
@@ -56,7 +56,8 @@ function meter(percent, width) {
 }
 
 function catalogEntry(provider) {
-  return PROVIDER_CATALOG.find(item => item.id === provider.id) ?? { id: provider.id, name: provider.name ?? provider.id, icon: '•' };
+  // Several logins of one provider (a second Claude config directory) share its entry.
+  return providerInfo(provider);
 }
 
 function localTime(milliseconds) {

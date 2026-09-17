@@ -1,11 +1,10 @@
 import { DisclosureState } from './disclosure-state.js';
 import { accountSelectionChanges, mergeAccountSelections } from './settings-state.js';
+import { PROVIDER_CATALOG, providerInfo } from './usage-view.js';
 
-const catalog = [
-  { id: 'claude', name: 'Claude', icon: '✳', loginCommand: 'claude auth login' },
-  { id: 'chatgpt', name: 'ChatGPT', icon: '◎', loginCommand: 'codex login' },
-  { id: 'grok', name: 'Grok', icon: '𝕏', loginCommand: 'grok login' },
-];
+// Until discovery answers, show one card per provider; afterwards the server decides,
+// which is how a second Claude config directory gets its own card.
+const catalog = PROVIDER_CATALOG.map(provider => providerInfo(provider));
 const allowanceNotes = {
   claude: 'Claude and Claude Code share these allowances. Session and weekly limits are measured separately.',
   chatgpt: 'These are Codex coding limits. They do not represent all ChatGPT conversations.',
@@ -101,7 +100,7 @@ function applyAccounts(payload) {
   const changedInterval = editing && Number($('interval').value) !== (state.settings?.refreshIntervalMs || 180000);
   const changedLan = editing && $('lan').checked !== Boolean(state.settings?.lanEnabled);
   const focusedProvider = document.activeElement?.matches('#settings-accounts input') ? document.activeElement.dataset.provider : null;
-  state.accounts = catalog.map(provider => ({ ...provider, ...payload.accounts.find(account => account.id === provider.id), id: provider.id, name: provider.name }));
+  state.accounts = payload.accounts.map(account => providerInfo(account));
   state.settings = payload.settings;
   if (typeof payload.csrfToken === 'string') state.csrfToken = payload.csrfToken;
   lastDiscovery = Date.now();
@@ -115,8 +114,9 @@ function applyAccounts(payload) {
 }
 
 function enabledProviders() {
-  if (!state.settings) return catalog;
-  return catalog.filter(provider => state.settings.enabled?.[provider.id]);
+  const accounts = state.accounts || catalog;
+  if (!state.settings) return accounts;
+  return accounts.filter(provider => state.settings.enabled?.[provider.id]);
 }
 
 function usableWindows(provider) {
@@ -152,14 +152,14 @@ function accountDetails(info, primary, extras) {
   });
   const extraRows = extras.map(extra => `<div class="extra-row"><dt>${escape(extra.label)}</dt><dd>${escape(extra.value)}</dd></div>`);
   const rows = [...extraRows, ...resetRows];
-  return `<details class="details" id="${detailsId}"${disclosures.update(detailsId) ? ' open' : ''}><summary>Account details</summary><p>${escape(allowanceNotes[info.id])}</p>${rows.length ? `<dl class="extras">${rows.join('')}</dl>` : ''}</details>`;
+  return `<details class="details" id="${escape(detailsId)}"${disclosures.update(detailsId) ? ' open' : ''}><summary>Account details</summary><p>${escape(allowanceNotes[info.type])}</p>${rows.length ? `<dl class="extras">${rows.join('')}</dl>` : ''}</details>`;
 }
 
 function modelLimits(info, windows) {
   const id = `${info.id}-models`;
   const open = disclosures.update(id, windows);
   if (!windows.length) return '';
-  return `<details class="details model-limits" id="${id}"${open ? ' open' : ''}><summary>Model limits <span class="detail-count">(${windows.length})</span></summary>${windows.map(window => meter(window, info.name)).join('')}</details>`;
+  return `<details class="details model-limits" id="${escape(id)}"${open ? ' open' : ''}><summary>Model limits <span class="detail-count">(${windows.length})</span></summary>${windows.map(window => meter(window, info.name)).join('')}</details>`;
 }
 
 function errorTitle(code = '') {
@@ -186,7 +186,7 @@ function renderCard(info) {
   else if (failed && /auth|expired|login|refresh_unsupported/i.test(code)) badge = 'Login needed';
   if (missing && !snapshot) badge = 'Login needed';
   let plan = planLabel(provider.plan || account?.plan) || 'Plan unavailable';
-  if (info.id === 'chatgpt' && !/codex/i.test(plan)) plan += ' · Codex';
+  if (info.type === 'chatgpt' && !/codex/i.test(plan)) plan += ' · Codex';
   let content = '';
   if (failed && windows.length) {
     content += `<div class="error-message">${escape(provider.error?.message || 'The latest check failed.')}<small>Showing the last successful reading.${timestamp(provider.nextRetryAt) === null ? '' : ` <span data-retry="${timestamp(provider.nextRetryAt)}"></span>`}</small></div>`;
@@ -209,8 +209,8 @@ function renderCard(info) {
     content += `<div class="empty-state"><h4>${escape(title)}</h4><p>${escape(message)}</p>${loginNeeded ? `<code>${escape(info.loginCommand)}</code>` : '<p>No usage percentage is available.</p>'}${timestamp(provider.nextRetryAt) === null ? '' : `<p data-retry="${timestamp(provider.nextRetryAt)}"></p>`}</div>`;
   }
   const updated = hasHistory ? `<span title="${escape(absolute(provider.lastSuccessAt))}">${stale ? 'Last success' : 'Updated'} <time data-relative="${timestamp(provider.lastSuccessAt)}">${relative(provider.lastSuccessAt)}</time></span>` : '<span>No successful reading yet</span>';
-  const footerNote = stale ? 'Stale data' : info.id === 'chatgpt' ? 'Codex usage' : 'CLI login';
-  return `<article class="card ${info.id}${stale ? ' stale' : ''}" aria-labelledby="${info.id}-title"><div class="card-main"><div class="provider-heading"><span class="provider-icon" aria-hidden="true">${info.icon}</span><div><h3 id="${info.id}-title">${info.name}</h3><div class="plan">${escape(plan)}</div></div><span class="status${failed || missing ? ' warning' : loading ? ' loading' : ''}">${badge}</span></div>${content}</div><div class="card-footer">${updated}<span>${footerNote}</span></div></article>`;
+  const footerNote = stale ? 'Stale data' : info.type === 'chatgpt' ? 'Codex usage' : 'CLI login';
+  return `<article class="card ${escape(info.type)}${stale ? ' stale' : ''}" aria-labelledby="${escape(info.id)}-title"><div class="card-main"><div class="provider-heading"><span class="provider-icon" aria-hidden="true">${info.icon}</span><div><h3 id="${escape(info.id)}-title">${escape(info.name)}</h3><div class="plan">${escape(plan)}</div></div><span class="status${failed || missing ? ' warning' : loading ? ' loading' : ''}">${badge}</span></div>${content}</div><div class="card-footer">${updated}<span>${footerNote}</span></div></article>`;
 }
 
 function accountRows(target, readOnly = false, selections) {
@@ -218,7 +218,7 @@ function accountRows(target, readOnly = false, selections) {
   $(target).innerHTML = accounts.map(account => {
     const checked = selections ? selections[account.id] : state.settings?.enabled?.[account.id];
     const description = account.found ? `${planLabel(account.plan) || 'CLI login'} · found${account.email ? ` · ${account.email}` : ''}` : account.message || 'No supported CLI login found on this PC';
-    return `<label class="account-row${account.found ? '' : ' missing'}"><span><strong>${escape(account.name)}</strong><small>${escape(description)}</small>${account.found ? '' : `<small>Run <code>${escape(catalog.find(provider => provider.id === account.id).loginCommand)}</code>, then rescan.</small>`}</span>${readOnly ? `<span class="status ${account.found ? '' : 'neutral'}">${account.found ? 'Found' : 'Not found'}</span>` : `<input type="checkbox" data-provider="${account.id}" aria-label="Enable ${escape(account.name)}"${checked ? ' checked' : ''}${!account.found && !checked ? ' disabled' : ''}>`}</label>`;
+    return `<label class="account-row${account.found ? '' : ' missing'}"><span><strong>${escape(account.name)}</strong><small>${escape(description)}</small>${account.found ? '' : `<small>Run <code>${escape(account.loginCommand || providerInfo(account.id).loginCommand)}</code>, then rescan.</small>`}</span>${readOnly ? `<span class="status ${account.found ? '' : 'neutral'}">${account.found ? 'Found' : 'Not found'}</span>` : `<input type="checkbox" data-provider="${account.id}" aria-label="Enable ${escape(account.name)}"${checked ? ' checked' : ''}${!account.found && !checked ? ' disabled' : ''}>`}</label>`;
   }).join('');
 }
 
@@ -386,7 +386,7 @@ $('refresh').addEventListener('click', async () => {
     state.connected = true;
     showError('connection-error');
     const advanced = (result.providers || []).filter(provider => provider.lastSuccessAt && provider.lastSuccessAt !== previous.get(provider.id));
-    if (advanced.length) notify(`${advanced.map(provider => catalog.find(info => info.id === provider.id)?.name || provider.name).join(', ')} usage updated.`);
+    if (advanced.length) notify(`${advanced.map(provider => state.accounts?.find(info => info.id === provider.id)?.name || provider.name).join(', ')} usage updated.`);
     else if (result.refreshed === false || result.refreshed === 0 || (Array.isArray(result.refreshed) && !result.refreshed.length)) {
       const next = timestamp(result.nextRefreshAt);
       notify(`Keeping the last readings. Refreshes respect the two-minute minimum and provider backoff.${next && next > Date.now() ? ` Next check in ${duration(next - Date.now())}.` : ''}`);

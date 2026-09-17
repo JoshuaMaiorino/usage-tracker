@@ -5,6 +5,26 @@ export const PROVIDER_CATALOG = [
   { id: 'grok', name: 'Grok', icon: '𝕏', loginCommand: 'grok login' },
 ];
 
+// Several local logins of one provider share its catalog entry: `claude-work` is a
+// second Claude config directory, so it keeps Claude's icon and login command.
+export const providerType = id => typeof id === 'string' && /^claude(?:-|$)/.test(id) ? 'claude' : id;
+
+/** Merge a discovered account with its catalog entry; the server owns id and name. */
+export function providerInfo(account, catalog = PROVIDER_CATALOG) {
+  const record = typeof account === 'string' ? { id: account } : { ...account };
+  const type = providerType(record.id);
+  const base = catalog.find(item => item.id === type) ?? {};
+  return {
+    ...record,
+    type,
+    id: record.id,
+    name: record.name || base.name || record.id,
+    icon: base.icon || '•',
+    loginCommand: record.loginCommand || base.loginCommand || '',
+    showModelLimits: base.showModelLimits === true,
+  };
+}
+
 const GENERIC_SCOPES = new Set(['all', 'general', 'shared', 'codex', 'subscription']);
 const FIVE_HOURS = 5 * 60 * 60;
 const WEEK = 7 * 24 * 60 * 60;
