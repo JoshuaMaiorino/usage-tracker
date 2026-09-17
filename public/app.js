@@ -1,6 +1,6 @@
 import { DisclosureState } from './disclosure-state.js';
 import { accountSelectionChanges, mergeAccountSelections } from './settings-state.js';
-import { PROVIDER_CATALOG, providerInfo } from './usage-view.js';
+import { PROVIDER_CATALOG, notStarted, providerInfo } from './usage-view.js';
 
 // Until discovery answers, show one card per provider; afterwards the server decides,
 // which is how a second Claude config directory gets its own card.
@@ -136,7 +136,7 @@ function meter(window, name) {
   const display = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value);
   const label = window.label || window.id || 'Usage allowance';
   const reset = timestamp(window.resetsAt);
-  return `<div class="meter"><div class="meter-title"><span>${escape(label)}</span><strong>${escape(display)}<span>%</span></strong></div><div class="track" role="meter" aria-label="${escape(name)}: ${escape(label)} used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, value)}" aria-valuetext="${escape(display)} percent used"><div class="fill ${color}" style="width:${Math.min(100, value)}%"></div></div><small${reset === null ? '' : ` data-reset="${reset}" title="${escape(absolute(reset))}"`}>${reset === null ? 'Reset time unavailable' : reset > Date.now() ? `Resets in ${duration(reset - Date.now())}` : 'Reset time passed; awaiting update'}</small></div>`;
+  return `<div class="meter"><div class="meter-title"><span>${escape(label)}</span><strong>${escape(display)}<span>%</span></strong></div><div class="track" role="meter" aria-label="${escape(name)}: ${escape(label)} used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, value)}" aria-valuetext="${escape(display)} percent used"><div class="fill ${color}" style="width:${Math.min(100, value)}%"></div></div><small${reset === null ? '' : ` data-reset="${reset}" title="${escape(absolute(reset))}"`}>${reset === null ? (notStarted(window) ? 'Starts on first use' : 'Reset time unavailable') : reset > Date.now() ? `Resets in ${duration(reset - Date.now())}` : 'Reset time passed; awaiting update'}</small></div>`;
 }
 
 function accountDetails(info, primary, extras) {

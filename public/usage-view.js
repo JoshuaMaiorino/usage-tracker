@@ -114,9 +114,14 @@ export function hottestWindow(windows) {
   });
 }
 
+// A window at 0% with no reset has not started counting: the provider starts the
+// clock on first use, so there is nothing to count down to yet. Any other missing
+// reset is genuinely unknown.
+export const notStarted = window => window?.usedPercent === 0 && timestamp(window?.resetsAt) === null;
+
 function resetText(window, now) {
   const reset = timestamp(window.resetsAt);
-  if (reset === null) return 'reset time unavailable';
+  if (reset === null) return notStarted(window) ? 'starts on first use' : 'reset time unavailable';
   if (reset <= now) return 'reset time passed';
   const clock = new Date(reset).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
   return `resets in ${duration(reset - now)} (${clock})`;

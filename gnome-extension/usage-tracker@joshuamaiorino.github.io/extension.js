@@ -17,6 +17,7 @@ import {
   duration,
   formatPercent,
   meterColor,
+  notStarted,
   providerInfo,
   relative,
   splitWindows,
@@ -310,7 +311,7 @@ class UsageIndicator extends PanelMenu.Button {
     row.add_child(top);
     row.add_child(meter(window.usedPercent, 300));
     const reset = timestamp(window.resetsAt);
-    const text = reset === null ? 'Reset time unavailable'
+    const text = reset === null ? (notStarted(window) ? 'Starts on first use' : 'Reset time unavailable')
       : reset > now ? `Resets in ${duration(reset - now)} · ${localTime(reset)}` : 'Reset time passed';
     row.add_child(label(text, 'usage-tracker-small', { muted: true }));
     return row;

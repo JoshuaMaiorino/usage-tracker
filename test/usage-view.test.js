@@ -4,6 +4,7 @@ import {
   compactChip,
   hottestWindow,
   meterColor,
+  notStarted,
   providerInfo,
   providerType,
   resetCountdown,
@@ -188,4 +189,19 @@ test('a second Claude chip is built from its own snapshot', () => {
   assert.equal(chip.state, 'ok');
   assert.equal(chip.displayPercent, '44');
   assert.ok(chip.title.startsWith('Claude · work'));
+});
+
+test('a window that has not started says so instead of reporting an unavailable reset', () => {
+  // Claude sends resets_at: null for a 5-hour session nobody has used yet.
+  const fresh = { id: 'session', label: 'Session · 5 hours', usedPercent: 0, durationSeconds: 18000, resetsAt: null };
+  const unknown = { id: 'session', label: 'Session · 5 hours', usedPercent: 12, durationSeconds: 18000, resetsAt: null };
+  assert.equal(notStarted(fresh), true);
+  assert.equal(notStarted(unknown), false);
+  assert.equal(notStarted({ ...fresh, resetsAt: new Date(now).toISOString() }), false);
+  assert.equal(notStarted(undefined), false);
+  const chip = compactChip(info, { id: 'claude', found: true }, { id: 'claude', status: 'ok', windows: [fresh] }, now);
+  assert.ok(chip.title.includes('starts on first use'));
+  assert.ok(!chip.title.includes('reset time unavailable'));
+  const stale = compactChip(info, { id: 'claude', found: true }, { id: 'claude', status: 'ok', windows: [unknown] }, now);
+  assert.ok(stale.title.includes('reset time unavailable'));
 });
