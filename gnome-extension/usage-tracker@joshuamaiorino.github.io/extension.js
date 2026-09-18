@@ -13,11 +13,12 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 // Copied from public/ by install.sh, so the top bar and the compact strip pick meters the same way.
 import {
-  PROVIDER_CATALOG,
   compactChip,
   duration,
   formatPercent,
   meterColor,
+  notStarted,
+  providerInfo,
   relative,
   splitWindows,
   timestamp,
@@ -56,7 +57,8 @@ function meter(percent, width) {
 }
 
 function catalogEntry(provider) {
-  return PROVIDER_CATALOG.find(item => item.id === provider.id) ?? { id: provider.id, name: provider.name ?? provider.id, icon: '•' };
+  // Several logins of one provider (a second Claude config directory) share its entry.
+  return providerInfo(provider);
 }
 
 function localTime(milliseconds) {
@@ -309,7 +311,7 @@ class UsageIndicator extends PanelMenu.Button {
     row.add_child(top);
     row.add_child(meter(window.usedPercent, 300));
     const reset = timestamp(window.resetsAt);
-    const text = reset === null ? 'Reset time unavailable'
+    const text = reset === null ? (notStarted(window) ? 'Starts on first use' : 'Reset time unavailable')
       : reset > now ? `Resets in ${duration(reset - now)} · ${localTime(reset)}` : 'Reset time passed';
     row.add_child(label(text, 'usage-tracker-small', { muted: true }));
     return row;

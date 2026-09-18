@@ -44,3 +44,29 @@ test('malformed discovery history is rejected without overwriting the config', a
     assert.equal(await readFile(path, 'utf8'), original);
   }
 });
+
+test('a second Claude login gets its own setting without disturbing saved choices', async t => {
+  const { store, path } = await fixture(t, {
+    enabled: { claude: true, chatgpt: false, grok: false },
+    seen: { claude: true, chatgpt: true, grok: true },
+    refreshIntervalMs: 180_000, lanEnabled: false,
+  });
+  const withSecond = [{ id: 'claude', found: true }, { id: 'claude-work', found: true }, { id: 'chatgpt', found: false }, { id: 'grok', found: false }];
+  const settings = await store.load(withSecond);
+  assert.deepEqual(settings.enabled, { claude: true, 'claude-work': true, chatgpt: false, grok: false });
+  assert.deepEqual(settings.seen, { claude: true, 'claude-work': true, chatgpt: true, grok: true });
+  assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), settings);
+  // Disabling it must survive the next discovery, and so must an account that goes away.
+  await store.save({ ...settings, enabled: { ...settings.enabled, 'claude-work': false } });
+  assert.equal((await store.load(withSecond)).enabled['claude-work'], false);
+  const removed = await store.load(discovered);
+  assert.equal(removed.enabled['claude-work'], false);
+  assert.equal(removed.seen['claude-work'], true);
+});
+
+test('stored account ids must look like a supported login', async t => {
+  for (const enabled of [{ 'claude-': true }, { 'claude-UPPER': true }, { gemini: true }, { 'claude-work!': true }]) {
+    const { store } = await fixture(t, { enabled, seen: {} });
+    await assert.rejects(store.load(discovered), /config.json is invalid/);
+  }
+});

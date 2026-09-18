@@ -25,7 +25,8 @@ header identifies this build as **Combined**. Keep the terminal running while us
 For a one-line strip of the same meters, open [http://127.0.0.1:3170/compact](http://127.0.0.1:3170/compact)
 or choose **Compact** in the header. Resize that window into a thin bar and keep it on top; it uses
 the same local API, colors, and refresh schedule as the dashboard. Each provider shows its session and
-weekly limits with a reset countdown; Claude also shows model limits such as Fable. Hover a cell for
+weekly limits with a reset countdown; Claude also shows model limits such as Fable, and a second Claude
+subscription in its own config directory gets its own card and chip. Hover a cell for
 the exact reset time.
 After a PC restart or crash, run the same command again.
 There is no build step, database, cloud service, or API-key setup. The only dependency generates phone QR
@@ -115,8 +116,24 @@ The first launch enables every supported CLI login found on this PC:
 | Provider | Credential file under your home directory | Login command |
 | --- | --- | --- |
 | Claude | `.claude/.credentials.json` | `claude auth login` |
+| Claude (more subscriptions) | `.claude-<name>/.credentials.json` | `CLAUDE_CONFIG_DIR=~/.claude-<name> claude auth login` |
 | ChatGPT / Codex | `.codex/auth.json` | `codex login` |
 | Grok | `.grok/auth.json` | `grok login` |
+
+### More than one Claude subscription
+
+Claude Code stores one account per config directory, so a second subscription lives in its own directory
+next to `~/.claude`:
+
+```sh
+CLAUDE_CONFIG_DIR=~/.claude-work claude   # log in once; that directory now holds the second account
+```
+
+Every `~/.claude*` directory holding a `.credentials.json` gets its own card, meter, and enable/disable
+checkbox — the dashboard never merges two subscriptions into one number, because their limits are separate.
+Cards are named for the email each CLI recorded (`Claude · work`), falling back to the directory name;
+with a single Claude login the card stays plain **Claude**. If `CLAUDE_CONFIG_DIR` is set for the server
+itself, that directory is the primary Claude account.
 
 Log in through the corresponding CLI, then use **Settings → Rescan**, or wait for automatic discovery.
 Newly discovered supported logins enable once. **Select found accounts → Save settings** enables all

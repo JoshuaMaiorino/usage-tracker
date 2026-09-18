@@ -1,6 +1,7 @@
 import {
   PROVIDER_CATALOG,
   compactChip,
+  providerInfo,
   duration,
   escapeHtml,
   relative,
@@ -45,19 +46,19 @@ async function api(path, body) {
   return payload;
 }
 
+// Before discovery answers, one chip per provider; afterwards one per discovered
+// account, so a second Claude config directory gets its own chip.
+const catalog = PROVIDER_CATALOG.map(provider => providerInfo(provider));
+
 function enabledProviders() {
-  if (!state.settings) return PROVIDER_CATALOG;
-  return PROVIDER_CATALOG.filter(provider => state.settings.enabled?.[provider.id]);
+  const accounts = state.accounts || catalog;
+  if (!state.settings) return accounts;
+  return accounts.filter(provider => state.settings.enabled?.[provider.id]);
 }
 
 function applyAccounts(payload) {
   if (!Array.isArray(payload?.accounts) || !payload.settings) throw new Error('Account discovery returned an unreadable response.');
-  state.accounts = PROVIDER_CATALOG.map(provider => ({
-    ...provider,
-    ...payload.accounts.find(account => account.id === provider.id),
-    id: provider.id,
-    name: provider.name,
-  }));
+  state.accounts = payload.accounts.map(account => providerInfo(account));
   state.settings = payload.settings;
   if (typeof payload.csrfToken === 'string') state.csrfToken = payload.csrfToken;
   lastDiscovery = Date.now();
@@ -84,7 +85,7 @@ function renderChip(info) {
   const body = chip.cells.length
     ? chip.cells.map(cell => renderCell(info, cell)).join('')
     : `<span class="compact-status">${sized(...(STATUS_LABELS[chip.state] || STATUS_LABELS.error))}</span>`;
-  return `<a class="compact-chip ${info.id} ${chip.state}" href="/#${info.id}-title" title="${escapeHtml(chip.title)}" style="flex-grow:${Math.max(1, chip.cells.length)}"><span class="compact-sr">${escapeHtml(info.name)}</span><span class="compact-icon" aria-hidden="true">${info.icon}</span>${body}${alert}</a>`;
+  return `<a class="compact-chip ${escapeHtml(info.type)} ${chip.state}" href="/#${encodeURIComponent(info.id)}-title" title="${escapeHtml(chip.title)}" style="flex-grow:${Math.max(1, chip.cells.length)}"><span class="compact-sr">${escapeHtml(info.name)}</span><span class="compact-icon" aria-hidden="true">${info.icon}</span>${body}${alert}</a>`;
 }
 
 function render() {

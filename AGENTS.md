@@ -34,15 +34,23 @@ Those endpoints are undocumented and can change without notice; the error-state 
 
 ## Data flow
 
-`discover.js` finds CLI credential files → `config.js` gates which are enabled (`data/config.json`) → each
+`accounts.js` lists the local logins (including every Claude config directory) → `discover.js` reads each
+credential file for metadata → `config.js` gates which are enabled (`data/config.json`) → each
 `providers/*.js` refreshes its token if needed and fetches → `normalize.js` flattens to
 `{ id, name, plan, windows[], extras }` → `cache.js` holds last-good snapshots → `/api/usage` serves the
 normalized shape to `public/app.js`.
 
+One provider can hold several accounts. An account id is `claude`, `claude-<suffix>`, `chatgpt`, or `grok`;
+`providerType(id)` maps it back to the provider for catalog metadata, parsing, and login hints. Ids are keys
+in `data/config.json`, so they must stay stable — `~/.claude` is always `claude`.
+
 ## Product rules
 
-- Provider order is always Claude → ChatGPT → Grok
+- Card order is always Claude → ChatGPT → Grok, with extra Claude accounts directly after `~/.claude`
 - v1 is those three providers only; add a later vendor as one file under `lib/providers/`
+- A second Claude subscription is a second config directory (`CLAUDE_CONFIG_DIR`), so `~/.claude*` siblings
+  holding a `.credentials.json` each get their own card. One Claude login keeps the plain "Claude" card;
+  two or more are labelled by the CLI's recorded email
 - Setup is local CLI login discovery, not API keys or cookie paste
 - Default bind `127.0.0.1:3140`; LAN bind is opt-in; the dashboard itself has no auth
 - Poll every 3 minutes (2 min floor); cache last-good snapshots; back off on 429 — Claude's
@@ -54,8 +62,10 @@ normalized shape to `public/app.js`.
 
 ## Secrets
 
-- Read CLI creds from `~/.claude/.credentials.json`, `~/.codex/auth.json`, `~/.grok/auth.json`
-  (`%USERPROFILE%\` equivalents on Windows)
+- Read CLI creds from `~/.claude/.credentials.json` (plus any `~/.claude-*` sibling and `CLAUDE_CONFIG_DIR`),
+  `~/.codex/auth.json`, `~/.grok/auth.json` (`%USERPROFILE%\` equivalents on Windows)
+- Account emails come from `.claude.json` metadata; never read a token out of that file, and keep credential
+  paths out of `/api/*` responses
 - Tokens stay in memory for the outbound provider request only
 - Never put tokens in `/api/*` JSON, logs, commits, or the UI
 - `data/` is gitignored; do not commit `data/config.json`
