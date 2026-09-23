@@ -95,7 +95,36 @@ test('all usage adapters return real fixture values, constant destinations, safe
   assert.deepEqual(payloads.map(item => item.windows[0].usedPercent), [32, 41, 26]);
   assert.equal(payloads[1].windows[0].durationSeconds, 604800);
   assert.doesNotMatch(JSON.stringify(payloads), /fixture-|refresh_token|accessToken|Authorization/);
-  assert.equal(requests.length, 4);
+  assert.equal(requests.length, 5);
+});
+
+test('Claude shows the live profile plan after an upgrade the credential file never recorded', async t => {
+  const f = await fixture(t);
+  await f.write('claude', claudeAuth({ subscriptionType: 'pro', rateLimitTier: 'default_claude_ai', expiresAt: NOW + 86_400_000 }));
+  let clock = NOW;
+  const requests = [];
+  const providers = createProviders({ ...f, now: () => clock, fetchImpl: async url => {
+    requests.push(url);
+    if (url.endsWith('/profile')) return jsonResponse({ organization: { organization_type: 'claude_max', rate_limit_tier: 'default_claude_max_20x' } });
+    return jsonResponse(CLAUDE_USAGE);
+  } });
+  assert.equal((await providers.claude()).plan, 'Max 20x');
+  clock += 180_000;
+  assert.equal((await providers.claude()).plan, 'Max 20x');
+  assert.equal(requests.filter(url => url.endsWith('/profile')).length, 1);
+  clock += 3_600_000;
+  await providers.claude();
+  assert.equal(requests.filter(url => url.endsWith('/profile')).length, 2);
+});
+
+test('Claude falls back to the recorded plan when the profile request fails', async t => {
+  const f = await fixture(t);
+  await f.write('claude', claudeAuth({ subscriptionType: 'pro', rateLimitTier: 'default_claude_ai' }));
+  const providers = createProviders({ ...f, now: () => NOW, fetchImpl: async url =>
+    url.endsWith('/profile') ? jsonResponse({}, 429) : jsonResponse(CLAUDE_USAGE) });
+  const payload = await providers.claude();
+  assert.equal(payload.plan, 'Pro');
+  assert.equal(payload.windows[0].usedPercent, 32);
 });
 
 test('Claude refreshes with margin, preserves unknown fields, and removes both official locks and temp files', async t => {
