@@ -234,6 +234,20 @@ test('Grok preserves absent versus protobuf zero credit amounts', () => {
   }
 });
 
+test('Grok reads an omitted unified-billing percent as a real zero', () => {
+  const config = {
+    currentPeriod: { type: 'USAGE_PERIOD_TYPE_WEEKLY', start: '2026-09-23T18:56:18.230004+00:00', end: '2026-09-30T18:56:18.230004+00:00' },
+    onDemandCap: { val: 0 }, onDemandUsed: { val: 0 }, isUnifiedBillingUser: true, prepaidBalance: { val: 0 },
+  };
+  const result = normalizeGrok({ config });
+  assert.equal(result.windows[0].usedPercent, 0);
+  assert.equal(result.windows[0].id, 'weekly');
+  assert.equal(result.windows[0].resetsAt, '2026-09-30T18:56:18.230Z');
+  assert.throws(() => normalizeGrok({ config: { ...config, isUnifiedBillingUser: false } }), { code: 'format' });
+  assert.throws(() => normalizeGrok({ config: { ...config, currentPeriod: {} } }), { code: 'format' });
+  assert.throws(() => normalizeGrok({ config: { ...config, creditUsagePercent: null } }), { code: 'format' });
+});
+
 test('Grok parses signed cent wrappers for legacy usage and monthly period', () => {
   const result = normalizeGrok({ config: {
     onDemandUsed: { val: '-2500' }, onDemandCap: { val: '-10000' }, isUnifiedBillingUser: false,
